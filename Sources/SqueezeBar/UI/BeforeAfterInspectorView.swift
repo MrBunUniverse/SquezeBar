@@ -365,3 +365,43 @@ private struct UnitRectClipShape: Shape {
         return path
     }
 }
+
+// Dedicated floating window controller for comparison view
+@MainActor
+public final class InspectorWindowController: NSObject, NSWindowDelegate {
+    public static let shared = InspectorWindowController()
+    private var window: NSWindow?
+    
+    public func show(result: CompressionResult) {
+        if let existing = window {
+            existing.close()
+        }
+        
+        let inspectorView = BeforeAfterInspectorView(result: result) { [weak self] in
+            self?.window?.close()
+            self?.window = nil
+        }
+        
+        let hostingController = NSHostingController(rootView: inspectorView)
+        let win = NSWindow(contentViewController: hostingController)
+        win.styleMask = [.titled, .closable, .resizable, .fullSizeContentView]
+        win.titleVisibility = .hidden
+        win.titlebarAppearsTransparent = true
+        win.isMovableByWindowBackground = true
+        win.level = .floating
+        win.backgroundColor = .clear
+        win.isOpaque = false
+        win.hasShadow = true
+        win.setContentSize(NSSize(width: 720, height: 540))
+        win.center()
+        win.delegate = self
+        
+        self.window = win
+        win.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+    
+    public func windowWillClose(_ notification: Notification) {
+        window = nil
+    }
+}

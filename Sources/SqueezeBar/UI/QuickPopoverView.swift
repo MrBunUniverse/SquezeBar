@@ -527,12 +527,13 @@ public struct QuickPopoverView: View {
             
             // Before / After Inspector Button
             Button {
-                state.inspectedResult = item
+                InspectorWindowController.shared.show(result: item)
             } label: {
                 Image(systemName: "slider.horizontal.below.rectangle")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
                     .padding(4)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Open Before/After Comparison Inspector")

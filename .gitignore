@@ -1,0 +1,7 @@
+.DS_Store
+.build/
+SqueezeBar.app/
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+.swiftpm/

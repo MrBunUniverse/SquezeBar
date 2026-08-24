@@ -472,7 +472,7 @@ public struct BeforeAfterInspectorView: View {
     }
 }
 
-// MARK: - Isolated Zoom & Pan Canvas Container
+// MARK: - Isolated Zoom & Pan Canvas Container with AppKit Event Handling
 private struct ZoomPanCanvas<Content: View>: View {
     @Binding var zoomScale: CGFloat
     @Binding var panOffset: CGSize
@@ -480,34 +480,46 @@ private struct ZoomPanCanvas<Content: View>: View {
     let content: () -> Content
     
     var body: some View {
-        ZStack {
-            Color.clear
-                .contentShape(Rectangle())
-            
+        InteractiveZoomPanRepresentable(
+            zoomScale: $zoomScale,
+            panOffset: $panOffset,
+            activeDragOffset: $activeDragOffset
+        ) {
             content()
         }
-        .gesture(
-            MagnificationGesture()
-                .onChanged { scale in
-                    zoomScale = max(1.0, min(6.0, scale))
-                }
-        )
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 1)
-                .onChanged { value in
-                    if zoomScale > 1.0 {
-                        activeDragOffset = value.translation
-                    }
-                }
-                .onEnded { value in
-                    if zoomScale > 1.0 {
-                        panOffset.width += value.translation.width
-                        panOffset.height += value.translation.height
-                        activeDragOffset = .zero
-                    }
-                }
-        )
-        .onTapGesture(count: 2) {
+    }
+}
+
+// AppKit Native Interactive Zoom/Pan View for Precise macOS Pinch, Scroll & Trackpad Events
+private struct InteractiveZoomPanRepresentable<Content: View>: NSViewRepresentable {
+    @Binding var zoomScale: CGFloat
+    @Binding var panOffset: CGSize
+    @Binding var activeDragOffset: CGSize
+    let content: () -> Content
+    
+    func makeNSView(context: Context) -> InteractiveZoomPanNSView {
+        let view = InteractiveZoomPanNSView()
+        view.onMagnify = { delta in
+            let newScale = max(1.0, min(8.0, zoomScale * (1.0 + delta)))
+            zoomScale = newScale
+            if newScale <= 1.0 {
+                panOffset = .zero
+                activeDragOffset = .zero
+            }
+        }
+        view.onScrollPan = { dx, dy in
+            if zoomScale > 1.0 {
+                panOffset.width += dx
+                panOffset.height -= dy
+            }
+        }
+        view.onMouseDrag = { dx, dy in
+            if zoomScale > 1.0 {
+                panOffset.width += dx
+                panOffset.height -= dy
+            }
+        }
+        view.onDoubleClick = {
             withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
                 if zoomScale > 1.0 {
                     zoomScale = 1.0
@@ -518,6 +530,101 @@ private struct ZoomPanCanvas<Content: View>: View {
                 }
             }
         }
+        
+        let hosting = NSHostingView(rootView: content())
+        hosting.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(hosting)
+        NSLayoutConstraint.activate([
+            hosting.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            hosting.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            hosting.topAnchor.constraint(equalTo: view.topAnchor),
+            hosting.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+        view.hostingView = hosting
+        
+        return view
+    }
+    
+    func updateNSView(_ nsView: InteractiveZoomPanNSView, context: Context) {
+        if let hosting = nsView.hostingView as? NSHostingView<Content> {
+            hosting.rootView = content()
+        }
+        nsView.onMagnify = { delta in
+            let newScale = max(1.0, min(8.0, zoomScale * (1.0 + delta)))
+            zoomScale = newScale
+            if newScale <= 1.0 {
+                panOffset = .zero
+                activeDragOffset = .zero
+            }
+        }
+        nsView.onScrollPan = { dx, dy in
+            if zoomScale > 1.0 {
+                panOffset.width += dx
+                panOffset.height -= dy
+            }
+        }
+        nsView.onMouseDrag = { dx, dy in
+            if zoomScale > 1.0 {
+                panOffset.width += dx
+                panOffset.height -= dy
+            }
+        }
+    }
+}
+
+private class InteractiveZoomPanNSView: NSView {
+    var hostingView: NSView?
+    var onMagnify: ((CGFloat) -> Void)?
+    var onScrollPan: ((CGFloat, CGFloat) -> Void)?
+    var onMouseDrag: ((CGFloat, CGFloat) -> Void)?
+    var onDoubleClick: (() -> Void)?
+    
+    private var lastMouseLocation: NSPoint = .zero
+    private var isDraggingMouse: Bool = false
+    
+    override var acceptsFirstResponder: Bool { true }
+    
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        return true
+    }
+    
+    // Native macOS Trackpad 2-Finger Pinch Gesture
+    override func magnify(with event: NSEvent) {
+        onMagnify?(event.magnification)
+    }
+    
+    // Mouse Scroll Wheel or Trackpad 2-Finger Scroll
+    override func scrollWheel(with event: NSEvent) {
+        // If holding Option or Command (or pure vertical wheel on external mouse), allow zoom
+        if event.modifierFlags.contains(.command) || event.modifierFlags.contains(.option) {
+            let zoomDelta = event.deltaY * 0.05
+            onMagnify?(zoomDelta)
+        } else {
+            // Trackpad 2-finger swipe / pan or regular scroll
+            onScrollPan?(event.scrollingDeltaX * 1.2, event.scrollingDeltaY * 1.2)
+        }
+    }
+    
+    override func mouseDown(with event: NSEvent) {
+        if event.clickCount == 2 {
+            onDoubleClick?()
+            return
+        }
+        lastMouseLocation = event.locationInWindow
+        isDraggingMouse = true
+    }
+    
+    override func mouseDragged(with event: NSEvent) {
+        guard isDraggingMouse else { return }
+        let currentLocation = event.locationInWindow
+        let dx = currentLocation.x - lastMouseLocation.x
+        let dy = currentLocation.y - lastMouseLocation.y
+        lastMouseLocation = currentLocation
+        onMouseDrag?(dx, -dy)
+    }
+    
+    override func mouseUp(with event: NSEvent) {
+        isDraggingMouse = false
     }
 }
 

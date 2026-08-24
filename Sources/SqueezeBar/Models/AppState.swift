@@ -50,6 +50,17 @@ public final class AppState: ObservableObject {
         static let totalFilesProcessed = "squeezebar.totalFilesProcessed"
         static let accentTheme = "squeezebar.accentTheme"
         static let customAccentHex = "squeezebar.customAccentHex"
+        static let isProUser = "squeezebar.isProUser"
+        static let customOutputFolder = "squeezebar.customOutputFolder"
+        static let exportToSubfolder = "squeezebar.exportToSubfolder"
+        static let subfolderName = "squeezebar.subfolderName"
+    }
+    
+    // MARK: - Pro / Basic Tier State
+    @Published public var isProUser: Bool {
+        didSet {
+            UserDefaults.standard.set(isProUser, forKey: Keys.isProUser)
+        }
     }
     
     // MARK: - Appearance & Accent Color Theme
@@ -66,6 +77,9 @@ public final class AppState: ObservableObject {
     }
     
     public var accentColor: Color {
+        guard isProUser else {
+            return Color.blue
+        }
         switch accentTheme {
         case .custom:
             return AppState.colorFromHex(customAccentHex) ?? Color(red: 0.1, green: 0.5, blue: 1.0)
@@ -316,6 +330,24 @@ public final class AppState: ObservableObject {
         }
     }
     
+    @Published public var customOutputFolder: String? {
+        didSet {
+            UserDefaults.standard.set(customOutputFolder, forKey: Keys.customOutputFolder)
+        }
+    }
+    
+    @Published public var exportToSubfolder: Bool {
+        didSet {
+            UserDefaults.standard.set(exportToSubfolder, forKey: Keys.exportToSubfolder)
+        }
+    }
+    
+    @Published public var subfolderName: String {
+        didSet {
+            UserDefaults.standard.set(subfolderName, forKey: Keys.subfolderName)
+        }
+    }
+    
     @Published public var stripMetadata: Bool {
         didSet {
             UserDefaults.standard.set(stripMetadata, forKey: Keys.stripMetadata)
@@ -337,6 +369,7 @@ public final class AppState: ObservableObject {
     @Published public var isPinned: Bool = false
     @Published public var isDetached: Bool = false
     @Published public var inspectedResult: CompressionResult? = nil
+    @Published public var supporterBannerNotice: String? = nil
     
     // MARK: - Runtime State
     @Published public var isProcessing: Bool = false
@@ -420,10 +453,11 @@ public final class AppState: ObservableObject {
         let savedCustomHex = UserDefaults.standard.string(forKey: Keys.customAccentHex) ?? ""
         self.customAccentHex = savedCustomHex.isEmpty ? "007AFF" : savedCustomHex
         
-        let savedSuffix = UserDefaults.standard.string(forKey: Keys.outputSuffix)
-        self.outputSuffix = savedSuffix ?? "_min"
-        
-        self.stripMetadata = UserDefaults.standard.bool(forKey: Keys.stripMetadata)
+        self.outputSuffix = UserDefaults.standard.string(forKey: Keys.outputSuffix) ?? "_min"
+        self.customOutputFolder = UserDefaults.standard.string(forKey: Keys.customOutputFolder)
+        self.exportToSubfolder = UserDefaults.standard.bool(forKey: Keys.exportToSubfolder)
+        self.subfolderName = UserDefaults.standard.string(forKey: Keys.subfolderName) ?? "Squeezed"
+        self.stripMetadata = UserDefaults.standard.object(forKey: Keys.stripMetadata) as? Bool ?? true     
         
         if UserDefaults.standard.object(forKey: Keys.hapticEnabled) == nil {
             self.hapticEnabled = true
@@ -435,6 +469,12 @@ public final class AppState: ObservableObject {
             self.soundEnabled = true
         } else {
             self.soundEnabled = UserDefaults.standard.bool(forKey: Keys.soundEnabled)
+        }
+        
+        if UserDefaults.standard.object(forKey: Keys.isProUser) == nil {
+            self.isProUser = true
+        } else {
+            self.isProUser = UserDefaults.standard.bool(forKey: Keys.isProUser)
         }
         
         self.totalBytesSaved = Int64(UserDefaults.standard.integer(forKey: Keys.totalBytesSaved))
@@ -568,6 +608,9 @@ public final class AppState: ObservableObject {
             preserveResolutionInTargetMode: preserveResolutionInTargetMode,
             preserveAudioQualityInTargetMode: preserveAudioQualityInTargetMode,
             suffix: outputSuffix.isEmpty ? "_min" : outputSuffix,
+            customOutputFolder: customOutputFolder,
+            exportToSubfolder: exportToSubfolder,
+            subfolderName: subfolderName.isEmpty ? "Squeezed" : subfolderName,
             stripMetadata: stripMetadata
         )
     }

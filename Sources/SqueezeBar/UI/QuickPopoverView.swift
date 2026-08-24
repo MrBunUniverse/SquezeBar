@@ -19,6 +19,11 @@ public struct QuickPopoverView: View {
     @State private var isMovingToFolder: Bool = false
     @State private var showClearConfirmation: Bool = false
     
+    // Supporter Modal State
+    @State private var showProModal: Bool = false
+    @State private var proModalFeatureTitle: String = "Additional Features"
+    @State private var proModalFeatureDesc: String = "Unlock unlimited batch processing and custom styling."
+    
     @Namespace private var presetGliderNamespace
     @Namespace private var mainTabGliderNamespace
     @Namespace private var settingsCategoryGliderNamespace
@@ -66,6 +71,52 @@ public struct QuickPopoverView: View {
                     if selectedTab == .activity {
                         statsSummaryCard
                         
+                        // Supporter Batch Limit Notice Banner
+                        if let notice = state.supporterBannerNotice {
+                            HStack(alignment: .center, spacing: 8) {
+                                Image(systemName: "exclamationmark.circle.fill")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.orange)
+                                
+                                Text(notice)
+                                    .font(.system(size: 10, design: .serif))
+                                    .foregroundColor(.primary)
+                                    .lineLimit(2)
+                                
+                                Spacer(minLength: 4)
+                                
+                                Button {
+                                    triggerProModal(
+                                        title: "Unlimited Batch Processing",
+                                        desc: "Compress hundreds or thousands of files in a single drag-and-drop batch with SqueezeBar Supporter."
+                                    )
+                                } label: {
+                                    Text("Unlock")
+                                        .font(.system(size: 9, weight: .bold, design: .serif))
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2.5)
+                                        .background(Capsule().fill(Color.orange))
+                                }
+                                .buttonStyle(.plain)
+                                
+                                Button {
+                                    withAnimation { state.supporterBannerNotice = nil }
+                                } label: {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 8, weight: .bold))
+                                        .foregroundColor(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.orange.opacity(0.12))
+                                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.orange.opacity(0.3), lineWidth: 0.5))
+                            )
+                        }
+                        
                         // 1-Click Quick Preset Selector Bar
                         quickPresetBar
                         
@@ -112,6 +163,15 @@ public struct QuickPopoverView: View {
                 state.inspectedResult = nil
             }
         }
+        .sheet(isPresented: $showProModal) {
+            proUpgradeModal
+        }
+    }
+    
+    private func triggerProModal(title: String, desc: String) {
+        proModalFeatureTitle = title
+        proModalFeatureDesc = desc
+        showProModal = true
     }
     
     // MARK: - Header
@@ -121,13 +181,37 @@ public struct QuickPopoverView: View {
                 HStack(spacing: 5) {
                     Text("SqueezeBar")
                         .font(.system(size: 13, weight: .bold, design: .serif))
-                    if isDetachedWindow {
-                        Text("PRO")
+                    
+                    // Secret Supporter / BASIC Badge Switcher
+                    Button {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
+                            state.isProUser.toggle()
+                            if state.isProUser {
+                                ConfettiCannonController.shared.explode()
+                            }
+                        }
+                    } label: {
+                        Text(state.isProUser ? "Supporter" : "BASIC")
                             .font(.system(size: 8, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
-                            .padding(.horizontal, 4)
+                            .padding(.horizontal, 4.5)
                             .padding(.vertical, 1)
-                            .background(Capsule().fill(state.accentColor))
+                            .background(
+                                Capsule()
+                                    .fill(state.isProUser ? state.accentColor : Color.secondary.opacity(0.45))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .help("Right-click or click to switch between Supporter and BASIC mode")
+                    .contextMenu {
+                        Button(state.isProUser ? "Switch to Basic Tier (Simulate Free)" : "Switch to Supporter Tier") {
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
+                                state.isProUser.toggle()
+                                if state.isProUser {
+                                    ConfettiCannonController.shared.explode()
+                                }
+                            }
+                        }
                     }
                 }
                 
@@ -302,35 +386,195 @@ public struct QuickPopoverView: View {
         }
     }
     
-    // MARK: - Stats Summary Cards (Editorial Health/Bloodwork Inspired 3-Tile Row with Proximity & Near-Cursor Light-Leak Glow)
+    // MARK: - Compact Status Pill (Direction C) + Live Profile Quick Switcher Tiles (Direction B)
     private var statsSummaryCard: some View {
-        ProximityGlowContainer {
-            HStack(spacing: 8) {
-                InteractiveGlowTile(
-                    title: "Space Saved",
-                    value: state.formattedTotalSaved,
-                    badge: state.overallPercentageSaved > 0 ? String(format: "-%.0f%%", state.overallPercentageSaved) : nil,
-                    icon: "arrow.down.circle.fill",
-                    accentColor: state.accentColor
-                )
-                
-                InteractiveGlowTile(
-                    title: "Efficiency",
-                    value: String(format: "%.0f%%", state.overallPercentageSaved),
-                    badge: "Avg",
-                    icon: "chart.line.uptrend.xyaxis.circle.fill",
-                    accentColor: .green
-                )
-                
-                InteractiveGlowTile(
-                    title: "Optimized",
-                    value: "\(state.totalFilesProcessed)",
-                    badge: "Files",
-                    icon: "sparkles.rectangle.stack.fill",
-                    accentColor: .purple
-                )
+        VStack(spacing: 8) {
+            compactHardwareStatusBar
+            
+            HStack(spacing: 6) {
+                videoProfileTile
+                imageProfileTile
+                audioProfileTile
             }
         }
+    }
+    
+    private var compactHardwareStatusBar: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 5) {
+                Image(systemName: "cpu.fill")
+                    .font(.system(size: 9))
+                    .foregroundColor(state.accentColor)
+                Text("Apple Silicon Hardware")
+                    .font(.system(size: 9.5, weight: .semibold, design: .serif))
+                    .foregroundColor(.primary)
+            }
+            
+            Spacer()
+            
+            HStack(spacing: 4) {
+                Image(systemName: "arrow.down.circle.fill")
+                    .font(.system(size: 9))
+                    .foregroundColor(.green)
+                Text("\(state.formattedTotalSaved) Saved")
+                    .font(.system(size: 9.5, weight: .bold, design: .serif))
+                    .foregroundColor(.green)
+                
+                if state.overallPercentageSaved > 0 {
+                    Text("(-\(Int(state.overallPercentageSaved))%)")
+                        .font(.system(size: 8.5, design: .serif))
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(
+            Capsule()
+                .fill(Color.white.opacity(0.035))
+                .overlay(Capsule().strokeBorder(Color.white.opacity(0.06), lineWidth: 0.5))
+        )
+    }
+    
+    // MARK: - Live Interactive Profile & Mode Cards (Quick Switchers with Specular Glass & Proximity Light Leak)
+    private var videoProfileTile: some View {
+        let codecText = state.videoCodec == .hevc ? "HEVC" : (state.videoCodec == .h264 ? "H.264" : "GIF")
+        let fpsText = state.videoFramerate.rawValue
+        let qualityPct = Int(state.videoQualitySlider * 100)
+        let scaleText = state.videoResolutionScale >= 1.0 ? "100%" : "\(Int(state.videoResolutionScale * 100))%"
+        
+        return Menu {
+            Button((state.videoCodec == .hevc ? "✓ " : "") + "HEVC (H.265) • Best Compression") { state.videoCodec = .hevc }
+            Button((state.videoCodec == .h264 ? "✓ " : "") + "H.264 • Maximum Compatibility") { state.videoCodec = .h264 }
+            Button((state.videoCodec == .gif ? "✓ " : "") + "Animated GIF • Web/Chat") { state.videoCodec = .gif }
+            Divider()
+            Button((state.videoFramerate == .original ? "✓ " : "") + "Framerate: Original") { state.videoFramerate = .original }
+            Button((state.videoFramerate == .fps60 ? "✓ " : "") + "Framerate: 60 FPS") { state.videoFramerate = .fps60 }
+            Button((state.videoFramerate == .fps50 ? "✓ " : "") + "Framerate: 50 FPS") { state.videoFramerate = .fps50 }
+            Button((state.videoFramerate == .fps30 ? "✓ " : "") + "Framerate: 30 FPS") { state.videoFramerate = .fps30 }
+            Button((state.videoFramerate == .fps25 ? "✓ " : "") + "Framerate: 25 FPS") { state.videoFramerate = .fps25 }
+            Button((state.videoFramerate == .fps24 ? "✓ " : "") + "Framerate: 24 FPS") { state.videoFramerate = .fps24 }
+            Button((state.videoFramerate == .fps15 ? "✓ " : "") + "Framerate: 15 FPS") { state.videoFramerate = .fps15 }
+            Button((state.videoFramerate == .fps12 ? "✓ " : "") + "Framerate: 12 FPS") { state.videoFramerate = .fps12 }
+        } label: {
+            LiveProfileGlowCard(accentColor: state.accentColor) {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "film")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(state.accentColor)
+                        Text("Video")
+                            .font(.system(size: 9.5, weight: .bold, design: .serif))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 7))
+                            .foregroundColor(.secondary.opacity(0.6))
+                    }
+                    
+                    Text("\(codecText) • \(fpsText)")
+                        .font(.system(size: 10, weight: .semibold, design: .serif))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                    
+                    Text("\(qualityPct)% Quality • \(scaleText) Scale")
+                        .font(.system(size: 8.5, design: .serif))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .help("Click to switch Video Codec & Framerate")
+    }
+    
+    private var imageProfileTile: some View {
+        let qualityPct = Int(state.imageQualitySlider * 100)
+        let scaleText = state.imageResolutionScale >= 1.0 ? "100%" : "\(Int(state.imageResolutionScale * 100))%"
+        
+        return Menu {
+            ForEach(ImageFormatPolicy.allCases, id: \.self) { fmt in
+                Button((state.imageFormatPolicy == fmt ? "✓ " : "") + fmt.rawValue) {
+                    state.imageFormatPolicy = fmt
+                }
+            }
+            Divider()
+            Button((abs(state.imageQualitySlider - 0.95) < 0.02 ? "✓ " : "") + "Quality: 95% (Visually Lossless)") { state.imageQualitySlider = 0.95 }
+            Button((abs(state.imageQualitySlider - 0.85) < 0.02 ? "✓ " : "") + "Quality: 85% (Balanced)") { state.imageQualitySlider = 0.85 }
+            Button((abs(state.imageQualitySlider - 0.70) < 0.02 ? "✓ " : "") + "Quality: 70% (Compact Web)") { state.imageQualitySlider = 0.70 }
+        } label: {
+            LiveProfileGlowCard(accentColor: .green) {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "photo")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.green)
+                        Text("Images")
+                            .font(.system(size: 9.5, weight: .bold, design: .serif))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 7))
+                            .foregroundColor(.secondary.opacity(0.6))
+                    }
+                    
+                    Text(state.imageFormatPolicy.rawValue)
+                        .font(.system(size: 10, weight: .semibold, design: .serif))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                    
+                    Text("\(qualityPct)% Quality • \(scaleText) Scale")
+                        .font(.system(size: 8.5, design: .serif))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .help("Click to switch Image Format & Quality")
+    }
+    
+    private var audioProfileTile: some View {
+        let bitrateLabel = state.audioBitrate.rawValue.components(separatedBy: " ").first ?? "128 kbps"
+        let exifText = state.stripMetadata ? "Strip EXIF: ON" : "Preserve EXIF"
+        
+        return Menu {
+            Button("Bitrate: 256 kbps (Studio AAC)") { state.audioBitrate = .k256 }
+            Button("Bitrate: 192 kbps (High AAC)") { state.audioBitrate = .k192 }
+            Button("Bitrate: 128 kbps (Standard AAC)") { state.audioBitrate = .k128 }
+            Button("Bitrate: 64 kbps (Voice / Compact)") { state.audioBitrate = .k64 }
+            Divider()
+            Button("Squeeze from Clipboard") { state.squeezeClipboard() }
+        } label: {
+            LiveProfileGlowCard(accentColor: .purple) {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "waveform")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.purple)
+                        Text("Audio")
+                            .font(.system(size: 9.5, weight: .bold, design: .serif))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 7))
+                            .foregroundColor(.secondary.opacity(0.6))
+                    }
+                    
+                    Text(bitrateLabel)
+                        .font(.system(size: 10, weight: .semibold, design: .serif))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                    
+                    Text(exifText)
+                        .font(.system(size: 8.5, design: .serif))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .help("Click to switch Audio Bitrate or Squeeze Clipboard")
     }
     
     // MARK: - Active Queue Section
@@ -502,6 +746,81 @@ public struct QuickPopoverView: View {
             batchRenameModal
         }
     }
+    // MARK: - Supporter Upgrade Modal (Paywall Experience)
+    private var proUpgradeModal: some View {
+        VStack(spacing: 16) {
+            // Header with glowing badge
+            VStack(spacing: 6) {
+                HStack(spacing: 6) {
+                    Text("SqueezeBar")
+                        .font(.system(size: 16, weight: .bold, design: .serif))
+                    
+                    Text("Supporter")
+                        .font(.system(size: 9, weight: .black, design: .rounded))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(Color.orange))
+                }
+                
+                Text(proModalFeatureTitle)
+                    .font(.system(size: 13, weight: .semibold, design: .serif))
+                    .foregroundColor(state.accentColor)
+                
+                Text(proModalFeatureDesc)
+                    .font(.system(size: 11, design: .serif))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 8)
+            }
+            
+            // Feature Unlocks List
+            VStack(alignment: .leading, spacing: 7) {
+                proFeatureRow(icon: "infinity", title: "Unlimited Batch File Compression (No 50-file limit)")
+                proFeatureRow(icon: "paintpalette.fill", title: "Full Color Palette & Custom HEX Theme Customization")
+                proFeatureRow(icon: "heart.fill", title: "Support Dev")
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.white.opacity(0.04))
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5))
+            )
+            
+            // Action Buttons
+            VStack(spacing: 8) {
+                SupporterActionButton {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
+                        state.isProUser = true
+                        showProModal = false
+                    }
+                    // Immersive celebratory confetti explosion that bursts across the window
+                    ConfettiCannonController.shared.explode()
+                }
+                
+                Button("Maybe Later") {
+                    showProModal = false
+                }
+                .font(.system(size: 10, design: .serif))
+                .buttonStyle(.plain)
+                .foregroundColor(.secondary)
+            }
+        }
+        .padding(20)
+        .frame(width: 340)
+    }
+    
+    private func proFeatureRow(icon: String, title: String) -> some View {
+        HStack(spacing: 7) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 10))
+                .foregroundColor(.orange)
+            Text(title)
+                .font(.system(size: 10, design: .serif))
+                .foregroundColor(.primary.opacity(0.9))
+            Spacer()
+        }
+    }
     
     // MARK: - Batch Action Toolbar (Select All, Delete, Move, Rename)
     private var batchActionToolbar: some View {
@@ -530,16 +849,32 @@ public struct QuickPopoverView: View {
             Spacer()
             
             if !selectedResultIds.isEmpty {
-                // Batch Rename Button
+                // Batch Rename Button (PRO Feature)
                 Button {
-                    renamePattern = "Compressed_#"
-                    isBatchRenaming = true
+                    if state.isProUser {
+                        renamePattern = "Compressed_#"
+                        isBatchRenaming = true
+                    } else {
+                        triggerProModal(
+                            title: "Batch Format Renaming",
+                            desc: "Batch rename multi-selected files with custom prefix and index tokens (#, {index}) instantly."
+                        )
+                    }
                 } label: {
                     HStack(spacing: 3) {
                         Image(systemName: "pencil.line")
                             .font(.system(size: 9))
                         Text("Rename")
                             .font(.system(size: 9.5, weight: .medium, design: .serif))
+                        
+                        if !state.isProUser {
+                            Text("PRO")
+                                .font(.system(size: 7, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 3)
+                                .padding(.vertical, 0.5)
+                                .background(Capsule().fill(Color.orange.opacity(0.85)))
+                        }
                     }
                     .foregroundColor(.white)
                     .padding(.horizontal, 6)
@@ -1093,8 +1428,7 @@ public struct QuickPopoverView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Format Target")
                     .font(.system(size: 11, weight: .bold, design: .serif))
-                
-                HStack(spacing: 4) {
+                 HStack(spacing: 4) {
                     ForEach(ImageFormatPolicy.allCases, id: \.self) { policy in
                         UniversalPillGliderItem(
                             item: policy,
@@ -1173,7 +1507,8 @@ public struct QuickPopoverView: View {
                         .font(.system(size: 9))
                         .foregroundColor(.secondary)
                 }
-                             // Quick preset pills with matched geometry glider
+                
+                // Quick preset pills with matched geometry glider
                 HStack(spacing: 4) {
                     ForEach(QualityPreset.allCases, id: \.self) { preset in
                         UniversalPillGliderItem(
@@ -1448,8 +1783,15 @@ public struct QuickPopoverView: View {
                 HStack(spacing: 8) {
                     ForEach(AccentColorTheme.allCases, id: \.self) { theme in
                         Button {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
-                                state.accentTheme = theme
+                            if !state.isProUser && theme != .blue {
+                                triggerProModal(
+                                    title: "\(theme == .custom ? "Custom Color Wheel" : "\(theme.rawValue) Theme")",
+                                    desc: "Unlock the complete color palette and custom HEX accent themes with SqueezeBar Supporter."
+                                )
+                            } else {
+                                withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                                    state.accentTheme = theme
+                                }
                             }
                         } label: {
                             ZStack {
@@ -1572,18 +1914,41 @@ public struct QuickPopoverView: View {
             // Watch Folder Card
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Label("Auto-Squeeze Watch Folder", systemImage: "folder.badge.gearshape")
-                        .font(.system(size: 11, weight: .bold, design: .serif))
+                    HStack(spacing: 4) {
+                        Label("Auto-Squeeze Watch Folder", systemImage: "folder.badge.gearshape")
+                            .font(.system(size: 11, weight: .bold, design: .serif))
+                        if !state.isProUser {
+                            Text("PRO")
+                                .font(.system(size: 7, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 3)
+                                .padding(.vertical, 0.5)
+                                .background(Capsule().fill(Color.orange.opacity(0.85)))
+                        }
+                    }
                     Spacer()
-                    Toggle("", isOn: $state.isWatchFolderEnabled)
-                        .toggleStyle(.switch)
-                        .onChange(of: state.isWatchFolderEnabled) { _, enabled in
-                            if enabled, let path = state.watchFolderPath {
-                                FolderWatchService.shared.startMonitoring(path: path)
+                    Toggle("", isOn: Binding(
+                        get: { state.isWatchFolderEnabled },
+                        set: { enabled in
+                            if !state.isProUser && enabled {
+                                triggerProModal(
+                                    title: "Auto-Squeeze Watch Folders",
+                                    desc: "Automatically monitor local directories in background and compress newly added media without lifting a finger."
+                                )
+                                state.isWatchFolderEnabled = false
                             } else {
-                                FolderWatchService.shared.stopMonitoring()
+                                state.isWatchFolderEnabled = enabled
                             }
                         }
+                    ))
+                    .toggleStyle(.switch)
+                    .onChange(of: state.isWatchFolderEnabled) { _, enabled in
+                        if enabled, let path = state.watchFolderPath, state.isProUser {
+                            FolderWatchService.shared.startMonitoring(path: path)
+                        } else {
+                            FolderWatchService.shared.stopMonitoring()
+                        }
+                    }
                 }
                 
                 if let path = state.watchFolderPath {
@@ -1615,7 +1980,100 @@ public struct QuickPopoverView: View {
             .padding(10)
             .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.03)))
             
-            VStack(spacing: 8) {
+            // Output Directory & Suffix Card
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label("Save Destination", systemImage: "folder")
+                        .font(.system(size: 11, weight: .bold, design: .serif))
+                    Spacer()
+                    Text(state.customOutputFolder != nil ? "Custom Directory" : (state.exportToSubfolder ? "Automatic Subfolder" : "Next to Original"))
+                        .font(.system(size: 10, weight: .semibold, design: .serif))
+                        .foregroundColor(state.accentColor)
+                }
+                
+                // Mode Switcher: Next to Original vs Auto Subfolder vs Custom Folder
+                VStack(alignment: .leading, spacing: 6) {
+                    Toggle("Create Subfolder for Compressed Files", isOn: $state.exportToSubfolder)
+                        .font(.system(size: 10))
+                        .toggleStyle(.switch)
+                    
+                    if state.exportToSubfolder {
+                        HStack(spacing: 6) {
+                            Text("Subfolder Name:")
+                                .font(.system(size: 9.5, design: .serif))
+                                .foregroundColor(.secondary)
+                            
+                            TextField("Squeezed", text: $state.subfolderName)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 110)
+                                .font(.system(size: 10, design: .monospaced))
+                            
+                            Text("(e.g. ./Squeezed/)")
+                                .font(.system(size: 8.5))
+                                .foregroundColor(.secondary.opacity(0.8))
+                        }
+                        .padding(.leading, 4)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+                }
+                .padding(.vertical, 2)
+                
+                Divider().opacity(0.15)
+                
+                // Specific Custom Directory Override
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Or specify a fixed Global Output Directory:")
+                        .font(.system(size: 9, design: .serif))
+                        .foregroundColor(.secondary)
+                    
+                    if let customFolder = state.customOutputFolder {
+                        Text(customFolder)
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
+                    
+                    HStack(spacing: 6) {
+                        Button {
+                            let openPanel = NSOpenPanel()
+                            openPanel.canChooseFiles = false
+                            openPanel.canChooseDirectories = true
+                            openPanel.allowsMultipleSelection = false
+                            openPanel.canCreateDirectories = true
+                            openPanel.prompt = "Select Output Folder"
+                            if openPanel.runModal() == .OK, let selectedURL = openPanel.url {
+                                state.customOutputFolder = selectedURL.path
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "folder.badge.plus")
+                                    .font(.system(size: 9))
+                                Text(state.customOutputFolder == nil ? "Choose Fixed Folder..." : "Change Folder...")
+                                    .font(.system(size: 9, weight: .medium))
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.06)))
+                        }
+                        .buttonStyle(.plain)
+                        
+                        if state.customOutputFolder != nil {
+                            Button {
+                                state.customOutputFolder = nil
+                            } label: {
+                                Text("Clear")
+                                    .font(.system(size: 9, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 4)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                
+                Divider().opacity(0.15).padding(.vertical, 2)
+                
                 HStack {
                     Text("Output File Suffix")
                         .font(.system(size: 10, weight: .medium))
@@ -1675,7 +2133,7 @@ public struct QuickPopoverView: View {
     // MARK: - Footer
     private var footerView: some View {
         HStack {
-            Text("SqueezeBar v0.8 • SirJameTV")
+            Text("SqueezeBar v0.9 • SirJameTV")
                 .font(.system(size: 9, design: .serif))
                 .foregroundColor(.secondary)
             
@@ -2101,6 +2559,112 @@ private struct InteractiveGlowTile: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Live Profile Glow Card with Specular Shine & Proximity Light Leak
+private struct LiveProfileGlowCard<Content: View>: View {
+    let accentColor: Color
+    @ViewBuilder let content: () -> Content
+    
+    @State private var isHovered = false
+    @State private var mouseLocation: CGPoint = .zero
+    
+    var body: some View {
+        content()
+            .padding(8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                ZStack {
+                    // Base Frosted Glass Slab
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(isHovered ? 0.08 : 0.04),
+                                    Color.white.opacity(isHovered ? 0.03 : 0.015)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    
+                    // Pure White Cursor-Following Light Leak / Specular Bloom (Identical to Size Glider)
+                    if isHovered {
+                        RadialGradient(
+                            gradient: Gradient(colors: [
+                                Color.white.opacity(0.14),
+                                Color.white.opacity(0.04),
+                                Color.clear
+                            ]),
+                            center: UnitPoint(
+                                x: mouseLocation.x / 130.0,
+                                y: mouseLocation.y / 55.0
+                            ),
+                            startRadius: 1,
+                            endRadius: 75
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .transition(.opacity)
+                    }
+                }
+            )
+            .overlay(
+                ZStack {
+                    // Base Specular Border
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(isHovered ? 0.28 : 0.12),
+                                    Color.white.opacity(0.04)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 0.65
+                        )
+                    
+                    // Pure White Dynamic Border Glint on Hover
+                    if isHovered {
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(
+                                RadialGradient(
+                                    gradient: Gradient(colors: [
+                                        Color.white.opacity(0.45),
+                                        Color.white.opacity(0.15),
+                                        Color.clear
+                                    ]),
+                                    center: UnitPoint(
+                                        x: mouseLocation.x / 130.0,
+                                        y: mouseLocation.y / 55.0
+                                    ),
+                                    startRadius: 1,
+                                    endRadius: 50
+                                ),
+                                lineWidth: 0.85
+                            )
+                    }
+                }
+            )
+            .shadow(
+                color: Color.black.opacity(isHovered ? 0.22 : 0.08),
+                radius: isHovered ? 4 : 1.5,
+                y: 1
+            )
+            .onContinuousHover { phase in
+                switch phase {
+                case .active(let location):
+                    withAnimation(.linear(duration: 0.04)) {
+                        mouseLocation = location
+                        isHovered = true
+                    }
+                case .ended:
+                    withAnimation(.easeOut(duration: 0.28)) {
+                        isHovered = false
+                    }
+                }
+            }
     }
 }
 
@@ -2676,6 +3240,56 @@ private struct QuickPopoverHistoryRowItem: View {
         .shadow(color: Color.black.opacity(0.1), radius: 2, y: 1)
         .onDrag {
             NSItemProvider(object: item.outputURL as NSURL)
+        }
+    }
+}
+
+// MARK: - Supporter Action Button (with Subtle Hover Glow)
+private struct SupporterActionButton: View {
+    let action: () -> Void
+    @State private var isHovered: Bool = false
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: "heart.fill")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(isHovered ? .white : .white.opacity(0.95))
+                    .shadow(color: Color.white.opacity(isHovered ? 0.6 : 0.0), radius: isHovered ? 4 : 0)
+                
+                Text("Support")
+                    .font(.system(size: 12, weight: .bold, design: .serif))
+                    .foregroundColor(.white)
+                    .shadow(color: Color.white.opacity(isHovered ? 0.55 : 0.0), radius: isHovered ? 5 : 0)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8.5)
+            .background(
+                ZStack {
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    isHovered ? Color.orange.opacity(0.95) : Color.orange,
+                                    isHovered ? Color(red: 0.95, green: 0.45, blue: 0.12) : Color.orange.opacity(0.85)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    
+                    if isHovered {
+                        Capsule()
+                            .strokeBorder(Color.white.opacity(0.35), lineWidth: 0.75)
+                    }
+                }
+                .shadow(color: Color.orange.opacity(isHovered ? 0.5 : 0.3), radius: isHovered ? 8 : 5, y: 2)
+            )
+            .animation(.easeInOut(duration: 0.2), value: isHovered)
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            isHovered = hovering
         }
     }
 }

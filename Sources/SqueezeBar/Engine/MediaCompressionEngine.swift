@@ -16,8 +16,17 @@ public actor MediaCompressionEngine {
     // MARK: - Batch Processing Entry Point
     public func processDroppedURLs(_ urls: [URL], targetFolderId: UUID? = nil) async {
         // 1. Gather all individual media files (recursively expanding folders)
-        let resolvedFiles = gatherMediaFiles(from: urls)
+        var resolvedFiles = gatherMediaFiles(from: urls)
         guard !resolvedFiles.isEmpty else { return }
+        
+        let isPro = await AppState.shared.isProUser
+        if !isPro && resolvedFiles.count > 50 {
+            let excess = resolvedFiles.count - 50
+            resolvedFiles = Array(resolvedFiles.prefix(50))
+            await MainActor.run {
+                AppState.shared.supporterBannerNotice = "Free tier is limited to 50 files per batch. Processing first 50 files (\(excess) remaining files skipped). Upgrade to Supporter for unlimited batching!"
+            }
+        }
         
         // 2. Fetch current config from main actor
         let config = await AppState.shared.currentConfiguration()
@@ -200,7 +209,24 @@ public actor MediaCompressionEngine {
         mediaType: MediaType,
         config: CompressionConfiguration
     ) -> URL {
-        let folder = customFolder ?? sourceURL.deletingLastPathComponent()
+        var folder = customFolder ?? sourceURL.deletingLastPathComponent()
+        if customFolder == nil, let customPath = config.customOutputFolder, !customPath.isEmpty {
+            let customDir = URL(fileURLWithPath: customPath)
+            if FileManager.default.fileExists(atPath: customDir.path) {
+                folder = customDir
+            }
+        }
+        
+        // Auto-create subfolder (e.g. "Squeezed") if enabled
+        if customFolder == nil && config.exportToSubfolder {
+            let subfolderName = config.subfolderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Squeezed" : config.subfolderName
+            let targetSubfolder = folder.appendingPathComponent(subfolderName)
+            if !FileManager.default.fileExists(atPath: targetSubfolder.path) {
+                try? FileManager.default.createDirectory(at: targetSubfolder, withIntermediateDirectories: true)
+            }
+            folder = targetSubfolder
+        }
+        
         let baseName = sourceURL.deletingPathExtension().lastPathComponent
         
         let targetExt: String

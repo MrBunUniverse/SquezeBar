@@ -363,6 +363,9 @@ public struct CompressionConfiguration: Sendable {
     public var preserveResolutionInTargetMode: Bool
     public var preserveAudioQualityInTargetMode: Bool
     public var suffix: String
+    public var customOutputFolder: String?
+    public var exportToSubfolder: Bool
+    public var subfolderName: String
     public var stripMetadata: Bool
     
     public var effectiveTargetSizeMB: Double? {
@@ -378,6 +381,9 @@ public struct CompressionConfiguration: Sendable {
         qualityPreset: QualityPreset = .visuallyLossless,
         customQuality: Double = 0.85,
         suffix: String = "_min",
+        customOutputFolder: String? = nil,
+        exportToSubfolder: Bool = false,
+        subfolderName: String = "Squeezed",
         stripMetadata: Bool = false
     ) {
         self.imageQuality = customQuality
@@ -395,6 +401,9 @@ public struct CompressionConfiguration: Sendable {
         self.preserveResolutionInTargetMode = false
         self.preserveAudioQualityInTargetMode = false
         self.suffix = suffix
+        self.customOutputFolder = customOutputFolder
+        self.exportToSubfolder = exportToSubfolder
+        self.subfolderName = subfolderName
         self.stripMetadata = stripMetadata
     }
     
@@ -414,6 +423,9 @@ public struct CompressionConfiguration: Sendable {
         preserveResolutionInTargetMode: Bool = false,
         preserveAudioQualityInTargetMode: Bool = false,
         suffix: String = "_min",
+        customOutputFolder: String? = nil,
+        exportToSubfolder: Bool = false,
+        subfolderName: String = "Squeezed",
         stripMetadata: Bool = false
     ) {
         self.imageQuality = imageQuality
@@ -431,6 +443,9 @@ public struct CompressionConfiguration: Sendable {
         self.preserveResolutionInTargetMode = preserveResolutionInTargetMode
         self.preserveAudioQualityInTargetMode = preserveAudioQualityInTargetMode
         self.suffix = suffix
+        self.customOutputFolder = customOutputFolder
+        self.exportToSubfolder = exportToSubfolder
+        self.subfolderName = subfolderName
         self.stripMetadata = stripMetadata
     }
     

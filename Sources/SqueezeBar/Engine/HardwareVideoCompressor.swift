@@ -82,7 +82,8 @@ public struct HardwareVideoCompressor: Sendable {
         let preferredTransform = try await videoTrack.load(.preferredTransform)
         let nominalFrameRate = try await videoTrack.load(.nominalFrameRate)
         let estimatedDataRate = try await videoTrack.load(.estimatedDataRate)
-        let frameRate = nominalFrameRate > 0 ? Double(nominalFrameRate) : 30.0
+        let sourceFPS = nominalFrameRate > 0 ? Double(nominalFrameRate) : 30.0
+        let frameRate: Double = config.videoFramerate.targetFPS ?? sourceFPS
         
         // Compute oriented dimensions
         let isTransposed = preferredTransform.a == 0 && preferredTransform.d == 0
@@ -106,32 +107,55 @@ public struct HardwareVideoCompressor: Sendable {
         var renderWidth: Int
         var renderHeight: Int
         let targetBitrate: Int
+        let targetAudioBitrate: Int
         
         if let targetMB = config.effectiveTargetSizeMB {
-            // Target File Size Automated Mode (e.g. 25 MB Discord, 50 MB Nitro, 10 MB Email)
-            // Leave 6% safety margin for MP4 header, moov atom, and index tables
-            let targetBytes = targetMB * 1024.0 * 1024.0 * 0.94
+            // Target File Size Automated Mode (e.g. 25 MB Discord, 50 MB Nitro, 10 MB Email, 2 MB Web)
+            // Leave 8% safety margin for MP4 header, moov atom, and audio/video packet overhead
+            let targetBytes = targetMB * 1024.0 * 1024.0 * 0.92
             let targetTotalBits = targetBytes * 8.0
-            let audioBitrate: Double = config.videoRemoveAudio ? 0.0 : 128_000.0
-            let availableVideoBitrate = max(180_000.0, (targetTotalBits / totalDurationSeconds) - audioBitrate)
             
-            // Intelligently scale resolution to prevent blockiness at lower bitrates
+            // Adapt audio bitrate: for small target sizes (e.g. <= 5MB), drop to 48k/64k unless locked
+            if config.videoRemoveAudio {
+                targetAudioBitrate = 0
+            } else if config.preserveAudioQualityInTargetMode {
+                targetAudioBitrate = 128_000
+            } else if targetMB <= 2.5 {
+                targetAudioBitrate = 48_000 // 48 kbps AAC
+            } else if targetMB <= 10.0 {
+                targetAudioBitrate = 64_000 // 64 kbps AAC
+            } else {
+                targetAudioBitrate = 96_000 // 96 kbps AAC
+            }
+            
+            let audioBitrateDouble = Double(targetAudioBitrate)
+            let availableVideoBitrate = max(120_000.0, (targetTotalBits / totalDurationSeconds) - audioBitrateDouble)
+            
+            // Intelligently scale resolution to prevent blockiness at lower bitrates (unless user locked original resolution)
             let maxDimForBitrate: Double
-            if availableVideoBitrate >= 5_000_000 {
+            if config.preserveResolutionInTargetMode {
+                maxDimForBitrate = sourceLongEdge // Keep 100% full original resolution
+            } else if availableVideoBitrate >= 5_000_000 {
                 maxDimForBitrate = 3840.0 // 4K
             } else if availableVideoBitrate >= 2_200_000 {
                 maxDimForBitrate = 1920.0 // 1080p
             } else if availableVideoBitrate >= 900_000 {
                 maxDimForBitrate = 1280.0 // 720p
-            } else if availableVideoBitrate >= 400_000 {
+            } else if availableVideoBitrate >= 350_000 {
                 maxDimForBitrate = 854.0  // 480p
-            } else {
+            } else if availableVideoBitrate >= 180_000 {
                 maxDimForBitrate = 640.0  // 360p
+            } else {
+                maxDimForBitrate = 480.0  // 240p
             }
             
             var autoScale = min(1.0, maxDimForBitrate / sourceLongEdge)
-            let manualScale = min(max(config.videoResolutionScale, 0.25), 1.0)
-            autoScale = min(autoScale, manualScale)
+            if !config.preserveResolutionInTargetMode {
+                let manualScale = min(max(config.videoResolutionScale, 0.25), 1.0)
+                autoScale = min(autoScale, manualScale)
+            } else {
+                autoScale = 1.0
+            }
             
             renderWidth = max(128, Int(Double(sourceWidth) * autoScale) & ~1)
             renderHeight = max(128, Int(Double(sourceHeight) * autoScale) & ~1)
@@ -139,6 +163,7 @@ public struct HardwareVideoCompressor: Sendable {
             targetBitrate = Int(min(availableVideoBitrate, sourceBitrate * 0.95))
         } else {
             // Manual Quality Mode
+            targetAudioBitrate = config.audioBitrate.bitrateInBps
             let resScale = min(max(config.videoResolutionScale, 0.25), 1.0)
             renderWidth = resScale < 0.999 ? Int(Double(sourceWidth) * resScale) : sourceWidth
             renderHeight = resScale < 0.999 ? Int(Double(sourceHeight) * resScale) : sourceHeight
@@ -237,12 +262,12 @@ public struct HardwareVideoCompressor: Sendable {
         
         // Audio writer input (AAC transcode via hardware)
         var writerAudioInput: AVAssetWriterInput?
-        if readerAudioOutput != nil {
+        if readerAudioOutput != nil && targetAudioBitrate > 0 {
             let audioCompressionSettings: [String: Any] = [
                 AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-                AVNumberOfChannelsKey: 2,
-                AVSampleRateKey: 44100.0,
-                AVEncoderBitRateKey: 128_000
+                AVNumberOfChannelsKey: targetAudioBitrate <= 48_000 ? 1 : 2, // Mono for super small sizes like 48k
+                AVSampleRateKey: targetAudioBitrate <= 48_000 ? 32000.0 : 44100.0,
+                AVEncoderBitRateKey: targetAudioBitrate
             ]
             let audioInput = AVAssetWriterInput(mediaType: .audio, outputSettings: audioCompressionSettings)
             audioInput.expectsMediaDataInRealTime = false
@@ -269,6 +294,8 @@ public struct HardwareVideoCompressor: Sendable {
             writerVideoInput: writerVideoInput,
             readerAudioOutput: readerAudioOutput,
             writerAudioInput: writerAudioInput,
+            targetFPS: config.videoFramerate.targetFPS,
+            sourceFPS: sourceFPS,
             totalDurationSeconds: totalDurationSeconds,
             progressHandler: progressHandler
         )
@@ -500,6 +527,8 @@ private final class VideoEncodingContext: @unchecked Sendable {
     private let writerVideoInput: AVAssetWriterInput
     private let readerAudioOutput: AVAssetReaderTrackOutput?
     private let writerAudioInput: AVAssetWriterInput?
+    private let targetFPS: Double?
+    private let sourceFPS: Double
     private let totalDurationSeconds: Double
     private let progressHandler: (@Sendable (Double) -> Void)?
     
@@ -510,6 +539,8 @@ private final class VideoEncodingContext: @unchecked Sendable {
         writerVideoInput: AVAssetWriterInput,
         readerAudioOutput: AVAssetReaderTrackOutput?,
         writerAudioInput: AVAssetWriterInput?,
+        targetFPS: Double?,
+        sourceFPS: Double,
         totalDurationSeconds: Double,
         progressHandler: (@Sendable (Double) -> Void)?
     ) {
@@ -519,6 +550,8 @@ private final class VideoEncodingContext: @unchecked Sendable {
         self.writerVideoInput = writerVideoInput
         self.readerAudioOutput = readerAudioOutput
         self.writerAudioInput = writerAudioInput
+        self.targetFPS = targetFPS
+        self.sourceFPS = sourceFPS
         self.totalDurationSeconds = totalDurationSeconds
         self.progressHandler = progressHandler
     }
@@ -532,6 +565,15 @@ private final class VideoEncodingContext: @unchecked Sendable {
             var hasFailed = false
             var failureError: Error?
             
+            // Frame rate cadence filter
+            let minFrameDeltaSec: Double = {
+                if let target = self.targetFPS, target > 0, target < self.sourceFPS {
+                    return (1.0 / target) * 0.90 // 10% threshold to avoid skipping boundary frames
+                }
+                return 0.0
+            }()
+            var lastAppendedTimeSec: Double = -1.0
+            
             // Video encoding loop
             group.enter()
             self.writerVideoInput.requestMediaDataWhenReady(on: videoQueue) { [weak self] in
@@ -544,6 +586,15 @@ private final class VideoEncodingContext: @unchecked Sendable {
                             let prog = min(0.95, max(0.05, currentSec / self.totalDurationSeconds))
                             self.progressHandler?(prog)
                         }
+                        
+                        // If target FPS is lower than source FPS, drop excess frames
+                        if minFrameDeltaSec > 0 && lastAppendedTimeSec >= 0 {
+                            if (currentSec - lastAppendedTimeSec) < minFrameDeltaSec {
+                                // Skip/drop this frame to downsample framerate
+                                continue
+                            }
+                        }
+                        lastAppendedTimeSec = currentSec
                         
                         if !self.writerVideoInput.append(sampleBuffer) {
                             self.writerVideoInput.markAsFinished()

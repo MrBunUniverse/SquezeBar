@@ -14,7 +14,7 @@ public actor MediaCompressionEngine {
     private init() {}
     
     // MARK: - Batch Processing Entry Point
-    public func processDroppedURLs(_ urls: [URL]) async {
+    public func processDroppedURLs(_ urls: [URL], targetFolderId: UUID? = nil) async {
         // 1. Gather all individual media files (recursively expanding folders)
         let resolvedFiles = gatherMediaFiles(from: urls)
         guard !resolvedFiles.isEmpty else { return }
@@ -44,8 +44,12 @@ public actor MediaCompressionEngine {
         
         guard !jobsToRun.isEmpty else { return }
         
-        // 4. Run batch with bounded concurrency (tuned for Apple Silicon hardware media engines)
-        let maxConcurrent = 3
+        // 4. Adaptive hardware concurrency tuned for Apple Silicon Media Engines:
+        // - 8GB M1/M2: 2 concurrent heavy transcode tasks to prevent memory paging & keep unified memory cool
+        // - 16GB+ M1/M2/M3/M4 Pro/Max: 3-4 concurrent streams for maximum hardware encoder throughput
+        let cores = ProcessInfo.processInfo.activeProcessorCount
+        let maxConcurrent: Int = max(2, min(cores <= 8 ? 2 : 4, jobsToRun.count))
+        
         await withTaskGroup(of: Void.self) { group in
             var running = 0
             for item in jobsToRun {
@@ -61,7 +65,8 @@ public actor MediaCompressionEngine {
                         mediaType: item.type,
                         jobId: item.jobId,
                         originalSize: item.origSize,
-                        config: config
+                        config: config,
+                        targetFolderId: targetFolderId
                     )
                 }
             }
@@ -79,7 +84,8 @@ public actor MediaCompressionEngine {
         mediaType: MediaType,
         jobId: UUID,
         originalSize: Int64,
-        config: CompressionConfiguration
+        config: CompressionConfiguration,
+        targetFolderId: UUID? = nil
     ) async {
         let isSecurityScoped = url.startAccessingSecurityScopedResource()
         defer {
@@ -88,7 +94,7 @@ public actor MediaCompressionEngine {
             }
         }
         
-        let origDim = probeDimensions(for: url, mediaType: mediaType)
+        let origDim = await probeDimensions(for: url, mediaType: mediaType)
         let startTime = Date()
         var destinationURL = generateDestinationURL(for: url, mediaType: mediaType, config: config)
         
@@ -124,7 +130,7 @@ public actor MediaCompressionEngine {
         
         let compressedSize = fileSize(of: destinationURL)
         let duration = Date().timeIntervalSince(startTime)
-        let outDim = probeDimensions(for: destinationURL, mediaType: mediaType)
+        let outDim = await probeDimensions(for: destinationURL, mediaType: mediaType)
         
         let result = CompressionResult(
             originalURL: url,
@@ -134,7 +140,8 @@ public actor MediaCompressionEngine {
             duration: duration,
             mediaType: mediaType,
             originalDimensions: origDim,
-            outputDimensions: outDim
+            outputDimensions: outDim,
+            folderId: targetFolderId
         )
         
         await AppState.shared.finishJob(id: jobId, result: result, error: nil)
@@ -223,8 +230,8 @@ public actor MediaCompressionEngine {
         return candidateURL
     }
     
-    // MARK: - Dimension & Format Probing
-    private func probeDimensions(for url: URL, mediaType: MediaType) -> String? {
+    // MARK: - Modern Async Dimension & Format Probing (Zero Main Thread Stalls)
+    private func probeDimensions(for url: URL, mediaType: MediaType) async -> String? {
         switch mediaType {
         case .image:
             guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
@@ -236,20 +243,61 @@ public actor MediaCompressionEngine {
             return nil
         case .video:
             let asset = AVURLAsset(url: url)
-            if let track = asset.tracks(withMediaType: .video).first {
-                let size = track.naturalSize.applying(track.preferredTransform)
-                let w = Int(abs(size.width))
-                let h = Int(abs(size.height))
-                return "\(w) × \(h)"
+            if let tracks = try? await asset.loadTracks(withMediaType: .video), let track = tracks.first {
+                var infoParts: [String] = []
+                
+                // 1. Resolution
+                if let size = try? await track.load(.naturalSize),
+                   let transform = try? await track.load(.preferredTransform) {
+                    let oriented = size.applying(transform)
+                    let w = Int(abs(oriented.width))
+                    let h = Int(abs(oriented.height))
+                    infoParts.append("\(w) × \(h)")
+                }
+                
+                // 2. Framerate (FPS)
+                if let nominalFPS = try? await track.load(.nominalFrameRate), nominalFPS > 0 {
+                    let roundedFPS: String
+                    if abs(nominalFPS - round(nominalFPS)) < 0.05 {
+                        roundedFPS = String(format: "%.0f fps", nominalFPS)
+                    } else {
+                        roundedFPS = String(format: "%.2f fps", nominalFPS)
+                    }
+                    infoParts.append(roundedFPS)
+                }
+                
+                // 3. Bitrate (Mbps / kbps)
+                var bitrateBps: Double = 0
+                if let estRate = try? await track.load(.estimatedDataRate), estRate > 0 {
+                    bitrateBps = Double(estRate)
+                } else if let duration = try? await asset.load(.duration) {
+                    let durSec = CMTimeGetSeconds(duration)
+                    if durSec > 0, let fileAttrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+                       let fileSize = fileAttrs[.size] as? Int64 {
+                        bitrateBps = (Double(fileSize) * 8.0) / durSec
+                    }
+                }
+                
+                if bitrateBps > 0 {
+                    if bitrateBps >= 1_000_000 {
+                        infoParts.append(String(format: "%.1f Mbps", bitrateBps / 1_000_000.0))
+                    } else {
+                        infoParts.append(String(format: "%.0f kbps", bitrateBps / 1_000.0))
+                    }
+                }
+                
+                return infoParts.isEmpty ? nil : infoParts.joined(separator: " • ")
             }
             return nil
         case .audio:
             let asset = AVURLAsset(url: url)
-            let sec = CMTimeGetSeconds(asset.duration)
-            if sec > 0 {
-                let m = Int(sec) / 60
-                let s = Int(sec) % 60
-                return String(format: "%d:%02d", m, s)
+            if let duration = try? await asset.load(.duration) {
+                let sec = CMTimeGetSeconds(duration)
+                if sec > 0 {
+                    let m = Int(sec) / 60
+                    let s = Int(sec) % 60
+                    return String(format: "%d:%02d", m, s)
+                }
             }
             return nil
         case .unsupported:

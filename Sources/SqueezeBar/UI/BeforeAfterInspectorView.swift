@@ -13,6 +13,9 @@ public struct BeforeAfterInspectorView: View {
     @State private var inspectorMode: InspectorMode = .split
     @State private var showOnlyAfter: Bool = false
     
+    // Synchronized Video Playback Engine
+    @StateObject private var videoEngine = SynchronizedVideoEngine()
+    
     // Zoom & Pan State (Shared and Synchronized across modes)
     @State private var zoomScale: CGFloat = 1.0
     @State private var panOffset: CGSize = .zero
@@ -21,7 +24,6 @@ public struct BeforeAfterInspectorView: View {
     enum InspectorMode: String, CaseIterable {
         case split = "Split Slider"
         case sideBySide = "Side by Side"
-        case toggle = "A / B Flip"
     }
     
     public init(result: CompressionResult, onClose: @escaping () -> Void) {
@@ -44,16 +46,26 @@ public struct BeforeAfterInspectorView: View {
                 .background(Color.black.opacity(0.6))
                 .clipped()
             
+            // Video Playback Controls Bar (if media is video)
+            if result.mediaType == .video && videoEngine.isLoaded {
+                videoTransportBar
+                Divider()
+                    .opacity(0.25)
+            }
+            
             Divider()
                 .opacity(0.25)
             
             // Bottom Metadata & Actions Bar
             bottomBar
         }
-        .frame(minWidth: 640, idealWidth: 840, minHeight: 500, idealHeight: 600)
+        .frame(minWidth: 680, idealWidth: 860, minHeight: 520, idealHeight: 640)
         .background(VisualEffectView(material: .hudWindow, blendingMode: .withinWindow))
         .task {
-            await loadImages()
+            await loadMedia()
+        }
+        .onDisappear {
+            videoEngine.cleanup()
         }
     }
     
@@ -68,29 +80,29 @@ public struct BeforeAfterInspectorView: View {
     // MARK: - Header
     private var headerBar: some View {
         HStack(spacing: 12) {
-            // Spacer to accommodate native macOS window traffic lights inside the standard titlebar area
+            // Spacer to accommodate native macOS window traffic lights inside standard titlebar
             Spacer()
                 .frame(width: 68)
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(result.fileName)
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(size: 12, weight: .bold, design: .serif))
                     .lineLimit(1)
                 
                 HStack(spacing: 6) {
                     Text(result.formattedOriginalSize)
-                        .font(.system(size: 10))
+                        .font(.system(size: 10, design: .serif))
                         .foregroundColor(.secondary)
                         .strikethrough()
                     Image(systemName: "arrow.right")
                         .font(.system(size: 8))
                         .foregroundColor(.secondary)
                     Text(result.formattedCompressedSize)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 10, weight: .semibold, design: .serif))
                         .foregroundColor(.primary)
                     
                     Text("Saved \(result.formattedSaved)")
-                        .font(.system(size: 9, weight: .semibold, design: .rounded))
+                        .font(.system(size: 9, weight: .semibold, design: .serif))
                         .foregroundColor(.green)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
@@ -116,7 +128,7 @@ public struct BeforeAfterInspectorView: View {
                 .disabled(zoomScale <= 1.0)
                 
                 Text(String(format: "%.0f%%", zoomScale * 100))
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .font(.system(size: 10, weight: .medium, design: .serif))
                     .frame(width: 38)
                     .onTapGesture(count: 2) {
                         resetZoom()
@@ -139,7 +151,7 @@ public struct BeforeAfterInspectorView: View {
                         resetZoom()
                     } label: {
                         Text("Reset")
-                            .font(.system(size: 9, weight: .medium))
+                            .font(.system(size: 9, weight: .medium, design: .serif))
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
                             .background(Capsule().fill(Color.white.opacity(0.12)))
@@ -150,16 +162,35 @@ public struct BeforeAfterInspectorView: View {
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 3)
-            .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.06)))
+            .background(Capsule().fill(Color.white.opacity(0.06)))
             
-            // Mode Selector
-            Picker("Mode", selection: $inspectorMode) {
+            // Mode Selector (Pill Glider)
+            HStack(spacing: 3) {
                 ForEach(InspectorMode.allCases, id: \.self) { mode in
-                    Text(mode.rawValue).tag(mode)
+                    Button {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.76)) {
+                            inspectorMode = mode
+                        }
+                    } label: {
+                        Text(mode.rawValue)
+                            .font(.system(size: 10, weight: inspectorMode == mode ? .semibold : .medium, design: .serif))
+                            .foregroundColor(inspectorMode == mode ? .white : .secondary)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule()
+                                    .fill(inspectorMode == mode ? Color.white.opacity(0.18) : Color.clear)
+                            )
+                    }
+                    .buttonStyle(.plain)
                 }
             }
-            .pickerStyle(.segmented)
-            .frame(width: 220)
+            .padding(2.5)
+            .background(
+                Capsule()
+                    .fill(Color.black.opacity(0.25))
+                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5))
+            )
         }
         .padding(.leading, 8)
         .padding(.trailing, 16)
@@ -193,16 +224,9 @@ public struct BeforeAfterInspectorView: View {
                         switch inspectorMode {
                         case .split:
                             splitComparisonView(width: w, height: h)
-                                .scaleEffect(zoomScale)
-                                .offset(x: currentPan.width, y: currentPan.height)
                                 
                         case .sideBySide:
                             sideBySideComparisonView(width: w, height: h)
-                            
-                        case .toggle:
-                            toggleComparisonView(width: w, height: h)
-                                .scaleEffect(zoomScale)
-                                .offset(x: currentPan.width, y: currentPan.height)
                         }
                     }
                 }
@@ -215,29 +239,41 @@ public struct BeforeAfterInspectorView: View {
         }
     }
     
-    // MARK: - Split Slider View
+    // MARK: - Split Slider View (Supports Live Video or Still Image)
     @ViewBuilder
     private func splitComparisonView(width: CGFloat, height: CGFloat) -> some View {
         ZStack {
-            // Original (Full width underneath)
-            if let orig = originalImage {
-                Image(nsImage: orig)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: width, height: height)
+            // Layer 1: Original (Bottom Layer) - Scaled and panned
+            Group {
+                if result.mediaType == .video, let origPlayer = videoEngine.originalPlayer {
+                    SynchronizedVideoPlayerLayer(player: origPlayer)
+                } else if let orig = originalImage {
+                    Image(nsImage: orig)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                }
             }
+            .frame(width: width, height: height)
+            .scaleEffect(zoomScale)
+            .offset(x: currentPan.width, y: currentPan.height)
             
-            // Compressed (Clipped dynamically by splitOffset)
-            if let comp = compressedImage {
-                Image(nsImage: comp)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: width, height: height)
-                    .clipShape(
-                        UnitRectClipShape(offset: splitOffset)
-                    )
+            // Layer 2: Optimized (Top Layer) - Scaled and panned with identical transform
+            Group {
+                if result.mediaType == .video, let compPlayer = videoEngine.compressedPlayer {
+                    SynchronizedVideoPlayerLayer(player: compPlayer)
+                } else if let comp = compressedImage {
+                    Image(nsImage: comp)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                }
             }
+            .frame(width: width, height: height)
+            .scaleEffect(zoomScale)
+            .offset(x: currentPan.width, y: currentPan.height)
+            // Clip in viewport space: The clip boundary is exactly at screen coordinate (width * splitOffset)
+            .clipShape(ScreenSpaceSplitClip(screenSplitX: width * splitOffset, totalWidth: width, totalHeight: height))
         }
+        .frame(width: width, height: height)
     }
     
     // Split Handle & Divider Line (Positioned in Screen Space)
@@ -248,7 +284,7 @@ public struct BeforeAfterInspectorView: View {
         ZStack {
             // Vertical Divider Line
             Rectangle()
-                .fill(Color.white.opacity(0.9))
+                .fill(Color.white.opacity(0.92))
                 .frame(width: 2)
                 .position(x: lineX, y: height / 2)
                 .shadow(color: .black.opacity(0.6), radius: 3)
@@ -277,20 +313,20 @@ public struct BeforeAfterInspectorView: View {
                 Spacer()
                 HStack {
                     Text("ORIGINAL")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 9, weight: .bold, design: .serif))
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
-                        .background(RoundedRectangle(cornerRadius: 5).fill(Color.black.opacity(0.65)))
+                        .background(Capsule().fill(Color.black.opacity(0.65)))
                         .foregroundColor(.white)
                         .padding(12)
                     
                     Spacer()
                     
                     Text("OPTIMIZED")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 9, weight: .bold, design: .serif))
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
-                        .background(RoundedRectangle(cornerRadius: 5).fill(Color.blue.opacity(0.85)))
+                        .background(Capsule().fill(Color.blue.opacity(0.85)))
                         .foregroundColor(.white)
                         .padding(12)
                 }
@@ -306,7 +342,12 @@ public struct BeforeAfterInspectorView: View {
         HStack(spacing: 8) {
             // Left Viewport: Original
             ZStack(alignment: .topLeading) {
-                if let orig = originalImage {
+                if result.mediaType == .video, let origPlayer = videoEngine.originalPlayer {
+                    SynchronizedVideoPlayerLayer(player: origPlayer)
+                        .frame(width: halfWidth, height: height)
+                        .scaleEffect(zoomScale)
+                        .offset(x: currentPan.width, y: currentPan.height)
+                } else if let orig = originalImage {
                     Image(nsImage: orig)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
@@ -316,10 +357,10 @@ public struct BeforeAfterInspectorView: View {
                 }
                 
                 Text("ORIGINAL")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: 9, weight: .bold, design: .serif))
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
-                    .background(RoundedRectangle(cornerRadius: 4).fill(Color.black.opacity(0.75)))
+                    .background(Capsule().fill(Color.black.opacity(0.75)))
                     .foregroundColor(.white)
                     .padding(10)
             }
@@ -330,7 +371,12 @@ public struct BeforeAfterInspectorView: View {
             
             // Right Viewport: Optimized (Mirrors same zoom & pan transformation)
             ZStack(alignment: .topLeading) {
-                if let comp = compressedImage {
+                if result.mediaType == .video, let compPlayer = videoEngine.compressedPlayer {
+                    SynchronizedVideoPlayerLayer(player: compPlayer)
+                        .frame(width: halfWidth, height: height)
+                        .scaleEffect(zoomScale)
+                        .offset(x: currentPan.width, y: currentPan.height)
+                } else if let comp = compressedImage {
                     Image(nsImage: comp)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
@@ -340,10 +386,10 @@ public struct BeforeAfterInspectorView: View {
                 }
                 
                 Text("OPTIMIZED")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: 9, weight: .bold, design: .serif))
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
-                    .background(RoundedRectangle(cornerRadius: 4).fill(Color.blue.opacity(0.85)))
+                    .background(Capsule().fill(Color.blue.opacity(0.85)))
                     .foregroundColor(.white)
                     .padding(10)
             }
@@ -355,67 +401,121 @@ public struct BeforeAfterInspectorView: View {
         .padding(.horizontal, 2)
     }
     
-    // MARK: - Toggle View (A / B Flip)
-    @ViewBuilder
-    private func toggleComparisonView(width: CGFloat, height: CGFloat) -> some View {
-        ZStack {
-            if showOnlyAfter {
-                if let comp = compressedImage {
-                    Image(nsImage: comp)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: width, height: height)
-                }
-            } else {
-                if let orig = originalImage {
-                    Image(nsImage: orig)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: width, height: height)
-                }
+    // MARK: - Video Transport Controls Bar (Play/Pause, Scrubbing, Audio Volume, Timestamp)
+    private var videoTransportBar: some View {
+        HStack(spacing: 12) {
+            Button {
+                videoEngine.togglePlayPause()
+            } label: {
+                Image(systemName: videoEngine.isPlaying ? "pause.fill" : "play.fill")
+                    .font(.system(size: 11, weight: .bold))
+                    .frame(width: 24, height: 24)
+                    .background(Capsule().fill(Color.white.opacity(0.12)))
             }
+            .buttonStyle(.plain)
+            .keyboardShortcut(.space, modifiers: [])
             
-            VStack {
-                Spacer()
+            Text(videoEngine.formattedCurrentTime)
+                .font(.system(size: 10, weight: .medium, design: .serif))
+                .foregroundColor(.secondary)
+                .frame(width: 40, alignment: .leading)
+            
+            // Time Scrub Slider
+            Slider(
+                value: Binding(
+                    get: { videoEngine.currentTimeSeconds },
+                    set: { newTime in
+                        videoEngine.seek(to: newTime)
+                    }
+                ),
+                in: 0...max(0.1, videoEngine.durationSeconds)
+            )
+            .accentColor(.blue)
+            
+            Text(videoEngine.formattedDuration)
+                .font(.system(size: 10, weight: .medium, design: .serif))
+                .foregroundColor(.secondary)
+                .frame(width: 40, alignment: .trailing)
+            
+            // Loop toggle
+            Button {
+                videoEngine.isLooping.toggle()
+            } label: {
+                Image(systemName: "repeat")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(videoEngine.isLooping ? .blue : .secondary)
+                    .padding(4)
+                    .background(Capsule().fill(videoEngine.isLooping ? Color.blue.opacity(0.15) : Color.clear))
+            }
+            .buttonStyle(.plain)
+            .help("Loop Playback")
+            
+            Divider()
+                .frame(height: 14)
+                .opacity(0.3)
+            
+            // Audio Volume Control
+            HStack(spacing: 5) {
                 Button {
-                    showOnlyAfter.toggle()
+                    videoEngine.isMuted.toggle()
                 } label: {
-                    Text(showOnlyAfter ? "Showing: OPTIMIZED (Click or Space to Flip)" : "Showing: ORIGINAL (Click or Space to Flip)")
-                        .font(.system(size: 10, weight: .bold))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Capsule().fill(showOnlyAfter ? Color.blue : Color.black.opacity(0.75)))
-                        .foregroundColor(.white)
-                        .shadow(radius: 3)
+                    Image(systemName: videoEngine.isMuted || videoEngine.volume == 0 ? "speaker.slash.fill" : (videoEngine.volume < 0.5 ? "speaker.1.fill" : "speaker.3.fill"))
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(videoEngine.isMuted ? .red.opacity(0.8) : .secondary)
                 }
                 .buttonStyle(.plain)
-                .keyboardShortcut(.space, modifiers: [])
-                .padding(.bottom, 12)
+                .help(videoEngine.isMuted ? "Unmute" : "Mute")
+                
+                Slider(
+                    value: Binding(
+                        get: { Double(videoEngine.volume) },
+                        set: { newVol in
+                            videoEngine.volume = Float(newVol)
+                            if videoEngine.isMuted && newVol > 0 {
+                                videoEngine.isMuted = false
+                            }
+                        }
+                    ),
+                    in: 0.0...1.0
+                )
+                .frame(width: 65)
+                .accentColor(.blue)
             }
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+        .background(Color.black.opacity(0.35))
     }
     
     // MARK: - Bottom Bar
     private var bottomBar: some View {
         HStack(spacing: 12) {
             if let origDim = result.originalDimensions, let outDim = result.outputDimensions {
-                HStack(spacing: 4) {
+                HStack(spacing: 6) {
                     Text(origDim)
+                        .font(.system(size: 10, design: .serif))
                         .foregroundColor(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2.5)
+                        .background(Capsule().fill(Color.white.opacity(0.06)))
+                    
                     Image(systemName: "arrow.right")
                         .font(.system(size: 8))
                         .foregroundColor(.secondary)
+                    
                     Text(outDim)
-                        .fontWeight(.semibold)
+                        .font(.system(size: 10, weight: .semibold, design: .serif))
                         .foregroundColor(.primary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2.5)
+                        .background(Capsule().fill(Color.blue.opacity(0.18)))
                 }
-                .font(.system(size: 10, design: .rounded))
             }
             
-            Text("Pinch / Scroll to zoom • Drag to pan • Double-click to toggle zoom")
-                .font(.system(size: 9))
+            Text("Pinch / Scroll to zoom • Drag to pan • Drag center handle to split")
+                .font(.system(size: 9, design: .serif))
                 .foregroundColor(.secondary.opacity(0.8))
-                .padding(.leading, 8)
+                .padding(.leading, 4)
             
             Spacer()
             
@@ -426,11 +526,11 @@ public struct BeforeAfterInspectorView: View {
                     Image(systemName: "folder")
                         .font(.system(size: 10))
                     Text("Reveal in Finder")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: 10, weight: .medium, design: .serif))
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.06)))
+                .background(Capsule().fill(Color.white.opacity(0.06)))
             }
             .buttonStyle(.plain)
             
@@ -443,12 +543,12 @@ public struct BeforeAfterInspectorView: View {
                     Image(systemName: "doc.on.clipboard")
                         .font(.system(size: 10))
                     Text("Copy File")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: 10, weight: .medium, design: .serif))
                 }
                 .foregroundColor(.white)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(RoundedRectangle(cornerRadius: 6).fill(Color.blue))
+                .background(Capsule().fill(Color.blue))
             }
             .buttonStyle(.plain)
         }
@@ -456,7 +556,11 @@ public struct BeforeAfterInspectorView: View {
         .padding(.vertical, 10)
     }
     
-    private func loadImages() async {
+    private func loadMedia() async {
+        if result.mediaType == .video {
+            await videoEngine.load(originalURL: result.originalURL, compressedURL: result.outputURL)
+        }
+        
         let orig = await loadMediaPreview(url: result.originalURL, mediaType: result.mediaType)
         let comp = await loadMediaPreview(url: result.outputURL, mediaType: result.mediaType)
         
@@ -481,6 +585,179 @@ public struct BeforeAfterInspectorView: View {
             return rep.nsImage
         }
         return NSWorkspace.shared.icon(forFile: url.path)
+    }
+}
+
+// MARK: - Synchronized Dual-AVPlayer Engine for Video Inspection
+@MainActor
+private final class SynchronizedVideoEngine: ObservableObject {
+    @Published var originalPlayer: AVPlayer?
+    @Published var compressedPlayer: AVPlayer?
+    @Published var isPlaying: Bool = false
+    @Published var isLoaded: Bool = false
+    @Published var currentTimeSeconds: Double = 0.0
+    @Published var durationSeconds: Double = 0.0
+    @Published var isLooping: Bool = true
+    @Published var volume: Float = 1.0 {
+        didSet {
+            compressedPlayer?.volume = isMuted ? 0.0 : volume
+        }
+    }
+    @Published var isMuted: Bool = false {
+        didSet {
+            compressedPlayer?.isMuted = isMuted
+            compressedPlayer?.volume = isMuted ? 0.0 : volume
+        }
+    }
+    
+    private var timeObserverToken: Any?
+    private var endObserverToken: Any?
+    
+    var formattedCurrentTime: String {
+        formatTime(currentTimeSeconds)
+    }
+    
+    var formattedDuration: String {
+        formatTime(durationSeconds)
+    }
+    
+    private func formatTime(_ seconds: Double) -> String {
+        let s = Int(seconds) % 60
+        let m = Int(seconds) / 60
+        return String(format: "%02d:%02d", m, s)
+    }
+    
+    func load(originalURL: URL, compressedURL: URL) async {
+        let origAsset = AVURLAsset(url: originalURL)
+        let compAsset = AVURLAsset(url: compressedURL)
+        
+        let origItem = AVPlayerItem(asset: origAsset)
+        let compItem = AVPlayerItem(asset: compAsset)
+        
+        let p1 = AVPlayer(playerItem: origItem)
+        let p2 = AVPlayer(playerItem: compItem)
+        
+        // Mute original to prevent dual audio echo, keep compressed audio active
+        p1.isMuted = true
+        p2.isMuted = false
+        
+        self.originalPlayer = p1
+        self.compressedPlayer = p2
+        
+        if let dur = try? await origAsset.load(.duration) {
+            let durSec = CMTimeGetSeconds(dur)
+            if durSec.isFinite && durSec > 0 {
+                self.durationSeconds = durSec
+            }
+        }
+        
+        self.isLoaded = true
+        
+        // Add Synchronized Time Observer (30 updates/sec for smooth slider)
+        let interval = CMTime(value: 1, timescale: 30)
+        timeObserverToken = p2.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
+            let sec = CMTimeGetSeconds(time)
+            Task { @MainActor [weak self] in
+                guard let self = self, sec.isFinite else { return }
+                self.currentTimeSeconds = sec
+            }
+        }
+        
+        // Loop when video reaches end
+        NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: compItem,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+                if self.isLooping {
+                    self.seek(to: 0.0)
+                    self.play()
+                } else {
+                    self.isPlaying = false
+                }
+            }
+        }
+        
+        // Autoplay initial preview
+        play()
+    }
+    
+    func play() {
+        originalPlayer?.play()
+        compressedPlayer?.play()
+        isPlaying = true
+    }
+    
+    func pause() {
+        originalPlayer?.pause()
+        compressedPlayer?.pause()
+        isPlaying = false
+    }
+    
+    func togglePlayPause() {
+        if isPlaying {
+            pause()
+        } else {
+            play()
+        }
+    }
+    
+    func seek(to seconds: Double) {
+        let targetTime = CMTime(seconds: seconds, preferredTimescale: 600)
+        originalPlayer?.seek(to: targetTime, toleranceBefore: .zero, toleranceAfter: .zero)
+        compressedPlayer?.seek(to: targetTime, toleranceBefore: .zero, toleranceAfter: .zero)
+        currentTimeSeconds = seconds
+    }
+    
+    func cleanup() {
+        pause()
+        if let token = timeObserverToken {
+            compressedPlayer?.removeTimeObserver(token)
+            timeObserverToken = nil
+        }
+        originalPlayer = nil
+        compressedPlayer = nil
+    }
+}
+
+// MARK: - Native AppKit AVPlayerLayer Wrapper (Zero CPU Copy & Metal Accelerated)
+private struct SynchronizedVideoPlayerLayer: NSViewRepresentable {
+    let player: AVPlayer
+    
+    func makeNSView(context: Context) -> PlayerNSView {
+        let view = PlayerNSView()
+        view.playerLayer.player = player
+        view.playerLayer.videoGravity = .resizeAspect
+        return view
+    }
+    
+    func updateNSView(_ nsView: PlayerNSView, context: Context) {
+        if nsView.playerLayer.player != player {
+            nsView.playerLayer.player = player
+        }
+    }
+}
+
+private final class PlayerNSView: NSView {
+    let playerLayer = AVPlayerLayer()
+    
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.addSublayer(playerLayer)
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        wantsLayer = true
+        layer?.addSublayer(playerLayer)
+    }
+    
+    override func layout() {
+        super.layout()
+        playerLayer.frame = bounds
     }
 }
 
@@ -655,19 +932,23 @@ private class WindowDragView: NSView {
     }
 }
 
-// Helper Shape for Split View Right Side Clipping
-private struct UnitRectClipShape: Shape {
-    var offset: CGFloat // 0.0 ... 1.0
+// Helper Shape for Split View Right Side Clipping in Screen Space
+private struct ScreenSpaceSplitClip: Shape {
+    var screenSplitX: CGFloat
+    var totalWidth: CGFloat
+    var totalHeight: CGFloat
     
     var animatableData: CGFloat {
-        get { offset }
-        set { offset = newValue }
+        get { screenSplitX }
+        set { screenSplitX = newValue }
     }
     
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        let startX = rect.width * offset
-        let clipRect = CGRect(x: startX, y: 0, width: rect.width - startX, height: rect.height)
+        // Compute clip rect covering right side of the screen boundary
+        let w = max(totalWidth, rect.width)
+        let h = max(totalHeight, rect.height)
+        let clipRect = CGRect(x: screenSplitX, y: -h * 4, width: max(0, w * 5 - screenSplitX), height: h * 9)
         path.addRect(clipRect)
         return path
     }

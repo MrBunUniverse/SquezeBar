@@ -76,6 +76,7 @@ public struct AcceleratedImageCompressor: Sendable {
         let strategy = compressionStrategy(
             quality: quality,
             targetSizeMB: config.effectiveTargetSizeMB,
+            preserveResolution: config.preserveResolutionInTargetMode,
             isPNG: isPNG,
             isLossyFormat: isLossyFormat,
             sourceURL: sourceURL,
@@ -193,6 +194,7 @@ public struct AcceleratedImageCompressor: Sendable {
     private func compressionStrategy(
         quality: Double,
         targetSizeMB: Double?,
+        preserveResolution: Bool,
         isPNG: Bool,
         isLossyFormat: Bool,
         sourceURL: URL,
@@ -221,8 +223,21 @@ public struct AcceleratedImageCompressor: Sendable {
             let ratio = targetBytes / Double(max(sourceSize, 1))
             
             if isLossyFormat {
-                let calculatedQ = min(0.90, max(0.20, sqrt(ratio) * 0.85))
-                let maxDim: CGFloat? = (ratio < 0.20 && longEdge > 2560) ? 2560 : ((ratio < 0.10 && longEdge > 1920) ? 1920 : nil)
+                let calculatedQ: Double
+                if preserveResolution {
+                    // Aggressive quality reduction to fit target size without changing resolution
+                    calculatedQ = min(0.85, max(0.12, ratio * 0.70))
+                } else {
+                    calculatedQ = min(0.90, max(0.20, sqrt(ratio) * 0.85))
+                }
+                
+                let maxDim: CGFloat?
+                if preserveResolution {
+                    maxDim = nil // Lock 100% full original resolution
+                } else {
+                    maxDim = (ratio < 0.20 && longEdge > 2560) ? 2560 : ((ratio < 0.10 && longEdge > 1920) ? 1920 : nil)
+                }
+                
                 return Strategy(
                     maxDimension: maxDim,
                     encoderQuality: calculatedQ,
@@ -230,9 +245,9 @@ public struct AcceleratedImageCompressor: Sendable {
                     label: "targetSize lossy q=\(calculatedQ)"
                 )
             } else if isPNG {
-                if ratio < 0.60 {
-                    let calculatedQ = min(0.85, max(0.25, sqrt(ratio) * 0.80))
-                    let maxDim: CGFloat? = (ratio < 0.30 && longEdge > 2560) ? 2560 : ((ratio < 0.15 && longEdge > 1920) ? 1920 : nil)
+                if ratio < 0.60 || preserveResolution {
+                    let calculatedQ = min(0.85, max(0.15, ratio * 0.65))
+                    let maxDim: CGFloat? = preserveResolution ? nil : ((ratio < 0.30 && longEdge > 2560) ? 2560 : ((ratio < 0.15 && longEdge > 1920) ? 1920 : nil))
                     return Strategy(
                         maxDimension: maxDim,
                         encoderQuality: calculatedQ,

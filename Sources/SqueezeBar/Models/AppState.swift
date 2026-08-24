@@ -7,14 +7,23 @@ import AppKit
 public final class AppState: ObservableObject {
     public static let shared = AppState()
     
+    // MARK: - Folders & Project Organization
+    @Published public var customFolders: [CompressionFolder] = [] {
+        didSet {
+            saveFolders()
+        }
+    }
+    
     // MARK: - User Settings Keys
     private enum Keys {
+        static let customFolders = "squeezebar.customFolders"
         static let imageFormatPolicy = "squeezebar.imageFormatPolicy"
         static let imageQualityPreset = "squeezebar.imageQualityPreset"
         static let imageQualitySlider = "squeezebar.imageQualitySlider"
         static let imageResolutionScale = "squeezebar.imageResolutionScale"
         
         static let videoCodec = "squeezebar.videoCodec"
+        static let videoFramerate = "squeezebar.videoFramerate"
         static let videoQualityPreset = "squeezebar.videoQualityPreset"
         static let videoQualitySlider = "squeezebar.videoQualitySlider"
         static let videoResolutionScale = "squeezebar.videoResolutionScale"
@@ -25,6 +34,8 @@ public final class AppState: ObservableObject {
         
         static let targetSizeMode = "squeezebar.targetSizeMode"
         static let customTargetSizeMB = "squeezebar.customTargetSizeMB"
+        static let preserveResolutionInTargetMode = "squeezebar.preserveResolutionInTargetMode"
+        static let preserveAudioQualityInTargetMode = "squeezebar.preserveAudioQualityInTargetMode"
         
         static let watchFolderPath = "squeezebar.watchFolderPath"
         static let isWatchFolderEnabled = "squeezebar.isWatchFolderEnabled"
@@ -37,6 +48,75 @@ public final class AppState: ObservableObject {
         static let totalBytesSaved = "squeezebar.totalBytesSaved"
         static let totalOriginalBytes = "squeezebar.totalOriginalBytes"
         static let totalFilesProcessed = "squeezebar.totalFilesProcessed"
+        static let accentTheme = "squeezebar.accentTheme"
+        static let customAccentHex = "squeezebar.customAccentHex"
+    }
+    
+    // MARK: - Appearance & Accent Color Theme
+    @Published public var accentTheme: AccentColorTheme {
+        didSet {
+            UserDefaults.standard.set(accentTheme.rawValue, forKey: Keys.accentTheme)
+        }
+    }
+    
+    @Published public var customAccentHex: String {
+        didSet {
+            UserDefaults.standard.set(customAccentHex, forKey: Keys.customAccentHex)
+        }
+    }
+    
+    public var accentColor: Color {
+        switch accentTheme {
+        case .custom:
+            return AppState.colorFromHex(customAccentHex) ?? Color(red: 0.1, green: 0.5, blue: 1.0)
+        case .blue:
+            return Color.blue
+        case .purple:
+            return Color(red: 0.65, green: 0.32, blue: 0.88)
+        case .pink:
+            return Color(red: 0.98, green: 0.32, blue: 0.58)
+        case .red:
+            return Color(red: 0.95, green: 0.28, blue: 0.28)
+        case .orange:
+            return Color(red: 0.98, green: 0.55, blue: 0.18)
+        case .yellow:
+            return Color(red: 0.98, green: 0.78, blue: 0.12)
+        case .green:
+            return Color(red: 0.32, green: 0.82, blue: 0.42)
+        case .graphite:
+            return Color(red: 0.58, green: 0.60, blue: 0.64)
+        }
+    }
+    
+    /// Text color to display ON TOP of the accent color (e.g. inside active pills/buttons)
+    /// Automatically switches to deep black/dark charcoal on light/white/yellow accents, and pure white on dark accents.
+    public var contrastTextColor: Color {
+        let nsColor = NSColor(accentColor).usingColorSpace(.sRGB) ?? NSColor.blue
+        // WCAG relative luminance formula
+        let luminance = 0.2126 * nsColor.redComponent + 0.7152 * nsColor.greenComponent + 0.0722 * nsColor.blueComponent
+        return luminance > 0.55 ? Color(white: 0.10) : Color.white
+    }
+    
+    public static func colorFromHex(_ hex: String) -> Color? {
+        var cleanHex = hex.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if cleanHex.hasPrefix("#") {
+            cleanHex.removeFirst()
+        }
+        guard cleanHex.count == 6, let rgbValue = UInt64(cleanHex, radix: 16) else {
+            return nil
+        }
+        let r = Double((rgbValue & 0xFF0000) >> 16) / 255.0
+        let g = Double((rgbValue & 0x00FF00) >> 8) / 255.0
+        let b = Double(rgbValue & 0x0000FF) / 255.0
+        return Color(red: r, green: g, blue: b)
+    }
+    
+    public static func hexFromColor(_ color: Color) -> String {
+        let nsColor = NSColor(color).usingColorSpace(.sRGB) ?? NSColor.blue
+        let r = Int(round(nsColor.redComponent * 255))
+        let g = Int(round(nsColor.greenComponent * 255))
+        let b = Int(round(nsColor.blueComponent * 255))
+        return String(format: "%02X%02X%02X", r, g, b)
     }
     
     // MARK: - Image Settings
@@ -69,6 +149,12 @@ public final class AppState: ObservableObject {
     @Published public var videoCodec: VideoCodecPreference {
         didSet {
             UserDefaults.standard.set(videoCodec.rawValue, forKey: Keys.videoCodec)
+        }
+    }
+    
+    @Published public var videoFramerate: VideoFramerateOption {
+        didSet {
+            UserDefaults.standard.set(videoFramerate.rawValue, forKey: Keys.videoFramerate)
         }
     }
     
@@ -127,12 +213,99 @@ public final class AppState: ObservableObject {
     @Published public var targetSizeMode: TargetSizeMode {
         didSet {
             UserDefaults.standard.set(targetSizeMode.rawValue, forKey: Keys.targetSizeMode)
+            applyTargetSizePreset(targetSizeMode)
         }
     }
     
     @Published public var customTargetSizeMB: Double {
         didSet {
             UserDefaults.standard.set(customTargetSizeMB, forKey: Keys.customTargetSizeMB)
+            if targetSizeMode == .custom {
+                applyCustomTargetSize(customTargetSizeMB)
+            }
+        }
+    }
+    
+    @Published public var preserveResolutionInTargetMode: Bool {
+        didSet {
+            UserDefaults.standard.set(preserveResolutionInTargetMode, forKey: Keys.preserveResolutionInTargetMode)
+            if preserveResolutionInTargetMode {
+                imageResolutionScale = 1.0
+                videoResolutionScale = 1.0
+            }
+        }
+    }
+    
+    @Published public var preserveAudioQualityInTargetMode: Bool {
+        didSet {
+            UserDefaults.standard.set(preserveAudioQualityInTargetMode, forKey: Keys.preserveAudioQualityInTargetMode)
+        }
+    }
+    
+    public func applyTargetSizePreset(_ mode: TargetSizeMode) {
+        switch mode {
+        case .web2:
+            // 2 MB: Aggressive compression
+            imageQualitySlider = 0.65
+            videoQualitySlider = 0.50
+            if !preserveResolutionInTargetMode {
+                imageResolutionScale = 0.75
+                videoResolutionScale = 0.50
+            }
+        case .email10:
+            // 10 MB: Balanced compression
+            imageQualitySlider = 0.75
+            videoQualitySlider = 0.65
+            if !preserveResolutionInTargetMode {
+                imageResolutionScale = 0.85
+                videoResolutionScale = 0.75
+            }
+        case .discord25:
+            // 25 MB: High quality target
+            imageQualitySlider = 0.85
+            videoQualitySlider = 0.80
+            if !preserveResolutionInTargetMode {
+                imageResolutionScale = 1.0
+                videoResolutionScale = 1.0
+            }
+        case .discord50:
+            // 50 MB: Visually lossless / large target
+            imageQualitySlider = 0.90
+            videoQualitySlider = 0.85
+            if !preserveResolutionInTargetMode {
+                imageResolutionScale = 1.0
+                videoResolutionScale = 1.0
+            }
+        case .custom:
+            applyCustomTargetSize(customTargetSizeMB)
+        case .off:
+            // Manual: Keep current user settings
+            break
+        }
+    }
+    
+    public func applyCustomTargetSize(_ mb: Double) {
+        if mb <= 5.0 {
+            imageQualitySlider = 0.60
+            videoQualitySlider = 0.45
+            if !preserveResolutionInTargetMode {
+                imageResolutionScale = 0.50
+                videoResolutionScale = 0.50
+            }
+        } else if mb <= 15.0 {
+            imageQualitySlider = 0.75
+            videoQualitySlider = 0.65
+            if !preserveResolutionInTargetMode {
+                imageResolutionScale = 0.75
+                videoResolutionScale = 0.75
+            }
+        } else {
+            imageQualitySlider = 0.85
+            videoQualitySlider = 0.80
+            if !preserveResolutionInTargetMode {
+                imageResolutionScale = 1.0
+                videoResolutionScale = 1.0
+            }
         }
     }
     
@@ -205,6 +378,9 @@ public final class AppState: ObservableObject {
         let savedVidCodec = UserDefaults.standard.string(forKey: Keys.videoCodec) ?? ""
         self.videoCodec = VideoCodecPreference(rawValue: savedVidCodec) ?? .hevc
         
+        let savedVidFPS = UserDefaults.standard.string(forKey: Keys.videoFramerate) ?? ""
+        self.videoFramerate = VideoFramerateOption(rawValue: savedVidFPS) ?? .original
+        
         let savedVidPreset = UserDefaults.standard.string(forKey: Keys.videoQualityPreset) ?? ""
         self.videoQualityPreset = QualityPreset(rawValue: savedVidPreset) ?? .visuallyLossless
         
@@ -234,7 +410,16 @@ public final class AppState: ObservableObject {
         let savedCustomSize = UserDefaults.standard.double(forKey: Keys.customTargetSizeMB)
         self.customTargetSizeMB = savedCustomSize > 0 ? savedCustomSize : 25.0
         
+        self.preserveResolutionInTargetMode = UserDefaults.standard.bool(forKey: Keys.preserveResolutionInTargetMode)
+        self.preserveAudioQualityInTargetMode = UserDefaults.standard.bool(forKey: Keys.preserveAudioQualityInTargetMode)
+        
         // Load General Settings
+        let savedTheme = UserDefaults.standard.string(forKey: Keys.accentTheme) ?? ""
+        self.accentTheme = AccentColorTheme(rawValue: savedTheme) ?? .blue
+        
+        let savedCustomHex = UserDefaults.standard.string(forKey: Keys.customAccentHex) ?? ""
+        self.customAccentHex = savedCustomHex.isEmpty ? "007AFF" : savedCustomHex
+        
         let savedSuffix = UserDefaults.standard.string(forKey: Keys.outputSuffix)
         self.outputSuffix = savedSuffix ?? "_min"
         
@@ -256,7 +441,113 @@ public final class AppState: ObservableObject {
         self.totalOriginalBytes = Int64(UserDefaults.standard.integer(forKey: Keys.totalOriginalBytes))
         self.totalFilesProcessed = UserDefaults.standard.integer(forKey: Keys.totalFilesProcessed)
         
+        loadFolders()
         loadHistory()
+    }
+    
+    // MARK: - Folder & Project Management
+    public func addFolder(name: String, icon: String = "folder.fill") {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let folder = CompressionFolder(name: trimmed, icon: icon)
+        customFolders.append(folder)
+    }
+    
+    public func renameFolder(id: UUID, newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        if let idx = customFolders.firstIndex(where: { $0.id == id }) {
+            customFolders[idx].name = trimmed
+        }
+    }
+    
+    public func deleteFolder(id: UUID) {
+        // Unassign all items in this folder
+        for i in 0..<recentResults.count {
+            if recentResults[i].folderId == id {
+                recentResults[i].folderId = nil
+            }
+        }
+        customFolders.removeAll { $0.id == id }
+        saveHistory()
+    }
+    
+    public func updateFolderColor(id: UUID, colorHex: String?) {
+        if let idx = customFolders.firstIndex(where: { $0.id == id }) {
+            customFolders[idx].colorHex = colorHex
+        }
+    }
+    
+    public func toggleFolderCollapse(id: UUID) {
+        if let idx = customFolders.firstIndex(where: { $0.id == id }) {
+            customFolders[idx].isCollapsed.toggle()
+        }
+    }
+    
+    public func assignResultsToFolder(resultIds: Set<UUID>, folderId: UUID?) {
+        for i in 0..<recentResults.count {
+            if resultIds.contains(recentResults[i].id) {
+                recentResults[i].folderId = folderId
+            }
+        }
+        saveHistory()
+    }
+    
+    // MARK: - Batch Operations (Delete, Format Rename)
+    public func batchDeleteResults(ids: Set<UUID>) {
+        recentResults.removeAll { ids.contains($0.id) }
+        saveHistory()
+    }
+    
+    public func batchRenameResults(ids: Set<UUID>, pattern: String) {
+        // Pattern format: e.g. "Homerenovation_#", "Project_{index}", or "CustomPrefix_#"
+        // If pattern contains '#' or '{index}' or '{i}', replace with sequential index 1, 2, 3...
+        var index = 1
+        let fm = FileManager.default
+        
+        for i in 0..<recentResults.count {
+            guard ids.contains(recentResults[i].id) else { continue }
+            let originalItem = recentResults[i]
+            let ext = originalItem.outputURL.pathExtension
+            let directory = originalItem.outputURL.deletingLastPathComponent()
+            
+            var newBaseName = pattern
+            if newBaseName.contains("#") {
+                newBaseName = newBaseName.replacingOccurrences(of: "#", with: "\(index)")
+            } else if newBaseName.contains("{index}") {
+                newBaseName = newBaseName.replacingOccurrences(of: "{index}", with: "\(index)")
+            } else if newBaseName.contains("{i}") {
+                newBaseName = newBaseName.replacingOccurrences(of: "{i}", with: "\(index)")
+            } else if ids.count > 1 {
+                // If no token was provided but multiple files selected, append _#
+                newBaseName = "\(newBaseName)_\(index)"
+            }
+            
+            let finalName = ext.isEmpty ? newBaseName : "\(newBaseName).\(ext)"
+            let targetURL = directory.appendingPathComponent(finalName)
+            
+            // Perform file system rename if file exists
+            if fm.fileExists(atPath: originalItem.outputURL.path) && originalItem.outputURL.path != targetURL.path {
+                try? fm.moveItem(at: originalItem.outputURL, to: targetURL)
+                recentResults[i].outputURL = targetURL
+            }
+            
+            index += 1
+        }
+        saveHistory()
+    }
+    
+    private func saveFolders() {
+        if let data = try? JSONEncoder().encode(customFolders) {
+            UserDefaults.standard.set(data, forKey: Keys.customFolders)
+        }
+    }
+    
+    private func loadFolders() {
+        if let data = UserDefaults.standard.data(forKey: Keys.customFolders),
+           let list = try? JSONDecoder().decode([CompressionFolder].self, from: data) {
+            self.customFolders = list
+        }
     }
     
     // MARK: - Configuration Getter
@@ -268,11 +559,14 @@ public final class AppState: ObservableObject {
             videoQuality: videoQualitySlider,
             videoResolutionScale: videoResolutionScale,
             videoCodec: videoCodec,
+            videoFramerate: videoFramerate,
             videoRemoveAudio: videoRemoveAudio,
             gifFramerate: gifFramerate,
             audioBitrate: audioBitrate,
             targetSizeMode: targetSizeMode,
             customTargetSizeMB: customTargetSizeMB,
+            preserveResolutionInTargetMode: preserveResolutionInTargetMode,
+            preserveAudioQualityInTargetMode: preserveAudioQualityInTargetMode,
             suffix: outputSuffix.isEmpty ? "_min" : outputSuffix,
             stripMetadata: stripMetadata
         )

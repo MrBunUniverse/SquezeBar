@@ -2,6 +2,19 @@ import Foundation
 import UniformTypeIdentifiers
 import AVFoundation
 
+// MARK: - Accent Color Theme
+public enum AccentColorTheme: String, Codable, Sendable, CaseIterable {
+    case custom = "Custom"
+    case blue = "Blue"
+    case purple = "Purple"
+    case pink = "Pink"
+    case red = "Red"
+    case orange = "Orange"
+    case yellow = "Yellow"
+    case green = "Green"
+    case graphite = "Graphite"
+}
+
 // MARK: - Media Type Classification
 public enum MediaType: String, Codable, Sendable, CaseIterable {
     case image
@@ -106,6 +119,31 @@ public enum VideoCodecPreference: String, Codable, Sendable, CaseIterable {
     }
 }
 
+// MARK: - Video Framerate Options
+public enum VideoFramerateOption: String, Codable, Sendable, CaseIterable {
+    case original = "Original"
+    case fps60 = "60 FPS"
+    case fps50 = "50 FPS"
+    case fps30 = "30 FPS"
+    case fps25 = "25 FPS"
+    case fps24 = "24 FPS"
+    case fps15 = "15 FPS"
+    case fps12 = "12 FPS"
+    
+    public var targetFPS: Double? {
+        switch self {
+        case .original: return nil
+        case .fps60: return 60.0
+        case .fps50: return 50.0
+        case .fps30: return 30.0
+        case .fps25: return 25.0
+        case .fps24: return 24.0
+        case .fps15: return 15.0
+        case .fps12: return 12.0
+        }
+    }
+}
+
 // MARK: - GIF Framerate Options
 public enum GIFFramerateOption: String, Codable, Sendable, CaseIterable {
     case full = "Full FPS"
@@ -161,11 +199,37 @@ public enum QualityPreset: String, Codable, Sendable, CaseIterable {
     }
 }
 
+// MARK: - Compression Project / Folder Model
+public struct CompressionFolder: Identifiable, Codable, Sendable, Hashable {
+    public let id: UUID
+    public var name: String
+    public var icon: String
+    public var isCollapsed: Bool
+    public var colorHex: String?
+    public let createdAt: Date
+    
+    public init(
+        id: UUID = UUID(),
+        name: String,
+        icon: String = "folder.fill",
+        isCollapsed: Bool = false,
+        colorHex: String? = nil,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.name = name
+        self.icon = icon
+        self.isCollapsed = isCollapsed
+        self.colorHex = colorHex
+        self.createdAt = createdAt
+    }
+}
+
 // MARK: - Compression Result
 public struct CompressionResult: Identifiable, Codable, Sendable {
     public let id: UUID
     public let originalURL: URL
-    public let outputURL: URL
+    public var outputURL: URL
     public let originalSize: Int64
     public let compressedSize: Int64
     public let duration: TimeInterval
@@ -173,6 +237,7 @@ public struct CompressionResult: Identifiable, Codable, Sendable {
     public let timestamp: Date
     public let originalDimensions: String?
     public let outputDimensions: String?
+    public var folderId: UUID?
     
     public init(
         id: UUID = UUID(),
@@ -184,7 +249,8 @@ public struct CompressionResult: Identifiable, Codable, Sendable {
         mediaType: MediaType,
         timestamp: Date = Date(),
         originalDimensions: String? = nil,
-        outputDimensions: String? = nil
+        outputDimensions: String? = nil,
+        folderId: UUID? = nil
     ) {
         self.id = id
         self.originalURL = originalURL
@@ -196,6 +262,7 @@ public struct CompressionResult: Identifiable, Codable, Sendable {
         self.timestamp = timestamp
         self.originalDimensions = originalDimensions
         self.outputDimensions = outputDimensions
+        self.folderId = folderId
     }
     
     public var bytesSaved: Int64 {
@@ -287,11 +354,14 @@ public struct CompressionConfiguration: Sendable {
     public var videoQuality: Double
     public var videoResolutionScale: Double
     public var videoCodec: VideoCodecPreference
+    public var videoFramerate: VideoFramerateOption
     public var videoRemoveAudio: Bool
     public var gifFramerate: GIFFramerateOption
     public var audioBitrate: AudioBitratePreference
     public var targetSizeMode: TargetSizeMode
     public var customTargetSizeMB: Double
+    public var preserveResolutionInTargetMode: Bool
+    public var preserveAudioQualityInTargetMode: Bool
     public var suffix: String
     public var stripMetadata: Bool
     
@@ -316,11 +386,14 @@ public struct CompressionConfiguration: Sendable {
         self.videoQuality = customQuality
         self.videoResolutionScale = 1.0
         self.videoCodec = (formatPolicy == .modernOptimized) ? .hevc : .hevc
+        self.videoFramerate = .original
         self.videoRemoveAudio = false
         self.gifFramerate = .half15
         self.audioBitrate = .k128
         self.targetSizeMode = .off
         self.customTargetSizeMB = 25.0
+        self.preserveResolutionInTargetMode = false
+        self.preserveAudioQualityInTargetMode = false
         self.suffix = suffix
         self.stripMetadata = stripMetadata
     }
@@ -332,11 +405,14 @@ public struct CompressionConfiguration: Sendable {
         videoQuality: Double = 0.80,
         videoResolutionScale: Double = 1.0,
         videoCodec: VideoCodecPreference = .hevc,
+        videoFramerate: VideoFramerateOption = .original,
         videoRemoveAudio: Bool = false,
         gifFramerate: GIFFramerateOption = .half15,
         audioBitrate: AudioBitratePreference = .k128,
         targetSizeMode: TargetSizeMode = .off,
         customTargetSizeMB: Double = 25.0,
+        preserveResolutionInTargetMode: Bool = false,
+        preserveAudioQualityInTargetMode: Bool = false,
         suffix: String = "_min",
         stripMetadata: Bool = false
     ) {
@@ -346,11 +422,14 @@ public struct CompressionConfiguration: Sendable {
         self.videoQuality = videoQuality
         self.videoResolutionScale = videoResolutionScale
         self.videoCodec = videoCodec
+        self.videoFramerate = videoFramerate
         self.videoRemoveAudio = videoRemoveAudio
         self.gifFramerate = gifFramerate
         self.audioBitrate = audioBitrate
         self.targetSizeMode = targetSizeMode
         self.customTargetSizeMB = customTargetSizeMB
+        self.preserveResolutionInTargetMode = preserveResolutionInTargetMode
+        self.preserveAudioQualityInTargetMode = preserveAudioQualityInTargetMode
         self.suffix = suffix
         self.stripMetadata = stripMetadata
     }

@@ -227,18 +227,19 @@ public struct QuickPopoverView: View {
                         .font(.system(size: 11, weight: selectedTab == tab ? .semibold : .regular))
                         .foregroundColor(selectedTab == tab ? .primary : .secondary)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 4)
+                        .padding(.vertical, 6)
                         .background(
                             selectedTab == tab ?
-                            RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.09)) :
-                            nil
+                            RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.12)) :
+                            RoundedRectangle(cornerRadius: 6).fill(Color.clear)
                         )
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(3)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.04)))
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.06)))
         .padding(.horizontal, 14)
         .padding(.top, 8)
     }

@@ -14,6 +14,11 @@ public struct BeforeAfterInspectorView: View {
     @State private var inspectorMode: InspectorMode = .split
     @State private var showOnlyAfter: Bool = false
     
+    // Zoom & Pan State (Shared and Synchronized across modes)
+    @State private var zoomScale: CGFloat = 1.0
+    @State private var panOffset: CGSize = .zero
+    @State private var activeDragOffset: CGSize = .zero
+    
     enum InspectorMode: String, CaseIterable {
         case split = "Split Slider"
         case sideBySide = "Side by Side"
@@ -31,33 +36,45 @@ public struct BeforeAfterInspectorView: View {
             headerBar
             
             Divider()
-                .opacity(0.3)
+                .opacity(0.2)
             
             // Comparison Canvas
             comparisonCanvas
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.black.opacity(0.4))
+                .background(Color.black.opacity(0.5))
+                .clipped()
             
             Divider()
-                .opacity(0.3)
+                .opacity(0.2)
             
             // Bottom Metadata & Actions Bar
             bottomBar
         }
-        .frame(minWidth: 540, idealWidth: 680, minHeight: 460, idealHeight: 520)
+        .frame(minWidth: 600, idealWidth: 780, minHeight: 480, idealHeight: 560)
         .background(VisualEffectView(material: .hudWindow, blendingMode: .withinWindow))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
         .task {
             await loadImages()
         }
     }
     
+    // Total effective pan
+    private var currentPan: CGSize {
+        CGSize(
+            width: panOffset.width + activeDragOffset.width,
+            height: panOffset.height + activeDragOffset.height
+        )
+    }
+    
     // MARK: - Header
     private var headerBar: some View {
         HStack(spacing: 10) {
+            // Space reserved for native macOS Traffic Lights (Close / Minimize)
+            Spacer()
+                .frame(width: 58)
+            
             VStack(alignment: .leading, spacing: 2) {
                 Text(result.fileName)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: 12, weight: .bold))
                     .lineLimit(1)
                 
                 HStack(spacing: 6) {
@@ -83,6 +100,56 @@ public struct BeforeAfterInspectorView: View {
             
             Spacer()
             
+            // Zoom Controls Indicator
+            HStack(spacing: 6) {
+                Button {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        zoomScale = max(1.0, zoomScale - 0.5)
+                        if zoomScale <= 1.0 { panOffset = .zero; activeDragOffset = .zero }
+                    }
+                } label: {
+                    Image(systemName: "minus.magnifyingglass")
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.plain)
+                .disabled(zoomScale <= 1.0)
+                
+                Text(String(format: "%.0f%%", zoomScale * 100))
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .frame(width: 38)
+                    .onTapGesture(count: 2) {
+                        resetZoom()
+                    }
+                
+                Button {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        zoomScale = min(5.0, zoomScale + 0.5)
+                    }
+                } label: {
+                    Image(systemName: "plus.magnifyingglass")
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.plain)
+                .disabled(zoomScale >= 5.0)
+                
+                if zoomScale > 1.0 {
+                    Button {
+                        resetZoom()
+                    } label: {
+                        Text("Reset")
+                            .font(.system(size: 9, weight: .medium))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Color.white.opacity(0.1)))
+                    }
+                    .buttonStyle(.plain)
+                    .transition(.opacity)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.04)))
+            
             // Mode Selector
             Picker("Mode", selection: $inspectorMode) {
                 ForEach(InspectorMode.allCases, id: \.self) { mode in
@@ -90,21 +157,20 @@ public struct BeforeAfterInspectorView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .frame(width: 210)
-            
-            // Close Button
-            Button {
-                onClose()
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 15))
-                    .foregroundColor(.secondary)
-            }
-            .buttonStyle(.plain)
-            .keyboardShortcut(.cancelAction)
+            .frame(width: 220)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.leading, 12)
+        .padding(.trailing, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 10)
+    }
+    
+    private func resetZoom() {
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+            zoomScale = 1.0
+            panOffset = .zero
+            activeDragOffset = .zero
+        }
     }
     
     // MARK: - Comparison Canvas
@@ -114,151 +180,203 @@ public struct BeforeAfterInspectorView: View {
             let w = geo.size.width
             let h = geo.size.height
             
-            switch inspectorMode {
-            case .split:
-                ZStack {
-                    // Original (Left / Underneath)
-                    if let orig = originalImage {
-                        Image(nsImage: orig)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: w, height: h)
-                    }
-                    
-                    // Compressed (Right / Clipped on Top)
-                    if let comp = compressedImage {
-                        Image(nsImage: comp)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: w, height: h)
-                            .clipShape(
-                                UnitRectClipShape(offset: splitOffset)
-                            )
-                    }
-                    
-                    // Vertical Divider Line & Handle
-                    let lineX = w * splitOffset
-                    
-                    Rectangle()
-                        .fill(Color.white.opacity(0.85))
-                        .frame(width: 2)
-                        .position(x: lineX, y: h / 2)
-                        .shadow(color: .black.opacity(0.5), radius: 3)
-                    
-                    // Center Pill Handle
-                    Circle()
-                        .fill(Color.white)
-                        .frame(width: 24, height: 24)
-                        .shadow(color: .black.opacity(0.4), radius: 4)
-                        .overlay(
-                            Image(systemName: "arrow.left.and.right")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundColor(.black)
-                        )
-                        .position(x: lineX, y: h / 2)
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
-                                .onChanged { value in
-                                    let newOffset = max(0.02, min(0.98, value.location.x / w))
-                                    splitOffset = newOffset
-                                }
-                        )
-                    
-                    // Floating Labels
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Text("ORIGINAL")
-                                .font(.system(size: 9, weight: .bold))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(RoundedRectangle(cornerRadius: 4).fill(Color.black.opacity(0.6)))
-                                .foregroundColor(.white)
-                                .padding(10)
-                            
-                            Spacer()
-                            
-                            Text("OPTIMIZED")
-                                .font(.system(size: 9, weight: .bold))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(RoundedRectangle(cornerRadius: 4).fill(Color.blue.opacity(0.8)))
-                                .foregroundColor(.white)
-                                .padding(10)
+            ZStack {
+                // Interactive Scroll/Pinch/Pan Overlay
+                ZoomPanContainer(
+                    zoomScale: $zoomScale,
+                    panOffset: $panOffset,
+                    activeDragOffset: $activeDragOffset
+                ) {
+                    Group {
+                        switch inspectorMode {
+                        case .split:
+                            splitComparisonView(width: w, height: h)
+                        case .sideBySide:
+                            sideBySideComparisonView(width: w, height: h)
+                        case .toggle:
+                            toggleComparisonView(width: w, height: h)
                         }
                     }
+                    .scaleEffect(zoomScale)
+                    .offset(x: currentPan.width, y: currentPan.height)
                 }
                 
-            case .sideBySide:
-                HStack(spacing: 8) {
-                    VStack(spacing: 4) {
-                        Text("ORIGINAL")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(.secondary)
-                        
-                        if let orig = originalImage {
-                            Image(nsImage: orig)
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        }
-                    }
-                    .padding(8)
-                    .background(Color.white.opacity(0.02))
-                    .cornerRadius(8)
-                    
-                    VStack(spacing: 4) {
-                        Text("OPTIMIZED")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(.blue)
-                        
-                        if let comp = compressedImage {
-                            Image(nsImage: comp)
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        }
-                    }
-                    .padding(8)
-                    .background(Color.white.opacity(0.02))
-                    .cornerRadius(8)
+                // Overlay controls that don't scale (e.g. Split Divider line)
+                if inspectorMode == .split {
+                    splitHandleOverlay(width: w, height: h)
                 }
-                .padding(10)
+            }
+        }
+    }
+    
+    // MARK: - Split Slider View
+    @ViewBuilder
+    private func splitComparisonView(width: CGFloat, height: CGFloat) -> some View {
+        ZStack {
+            // Original (Full width underneath)
+            if let orig = originalImage {
+                Image(nsImage: orig)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: width, height: height)
+            }
+            
+            // Compressed (Clipped dynamically by splitOffset)
+            if let comp = compressedImage {
+                Image(nsImage: comp)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: width, height: height)
+                    .clipShape(
+                        UnitRectClipShape(offset: splitOffset)
+                    )
+            }
+        }
+    }
+    
+    // Split Handle & Divider Line (Positioned in Screen Space)
+    @ViewBuilder
+    private func splitHandleOverlay(width: CGFloat, height: CGFloat) -> some View {
+        let lineX = width * splitOffset
+        
+        ZStack {
+            // Vertical Divider Line
+            Rectangle()
+                .fill(Color.white.opacity(0.9))
+                .frame(width: 2)
+                .position(x: lineX, y: height / 2)
+                .shadow(color: .black.opacity(0.6), radius: 3)
+            
+            // Center Pill Handle
+            Circle()
+                .fill(Color.white)
+                .frame(width: 26, height: 26)
+                .shadow(color: .black.opacity(0.5), radius: 4)
+                .overlay(
+                    Image(systemName: "arrow.left.and.right")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.black)
+                )
+                .position(x: lineX, y: height / 2)
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            let newOffset = max(0.02, min(0.98, value.location.x / width))
+                            splitOffset = newOffset
+                        }
+                )
+            
+            // Labels
+            VStack {
+                Spacer()
+                HStack {
+                    Text("ORIGINAL")
+                        .font(.system(size: 9, weight: .bold))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(RoundedRectangle(cornerRadius: 5).fill(Color.black.opacity(0.65)))
+                        .foregroundColor(.white)
+                        .padding(12)
+                    
+                    Spacer()
+                    
+                    Text("OPTIMIZED")
+                        .font(.system(size: 9, weight: .bold))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(RoundedRectangle(cornerRadius: 5).fill(Color.blue.opacity(0.85)))
+                        .foregroundColor(.white)
+                        .padding(12)
+                }
+            }
+        }
+    }
+    
+    // MARK: - Synchronized Side By Side View
+    @ViewBuilder
+    private func sideBySideComparisonView(width: CGFloat, height: CGFloat) -> some View {
+        HStack(spacing: 8) {
+            // Original Panel
+            ZStack(alignment: .topLeading) {
+                if let orig = originalImage {
+                    Image(nsImage: orig)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
                 
-            case .toggle:
-                ZStack {
-                    if showOnlyAfter {
-                        if let comp = compressedImage {
-                            Image(nsImage: comp)
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(width: w, height: h)
-                        }
-                    } else {
-                        if let orig = originalImage {
-                            Image(nsImage: orig)
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(width: w, height: h)
-                        }
-                    }
-                    
-                    VStack {
-                        Spacer()
-                        Button {
-                            showOnlyAfter.toggle()
-                        } label: {
-                            Text(showOnlyAfter ? "Showing: OPTIMIZED (Click to Flip)" : "Showing: ORIGINAL (Click to Flip)")
-                                .font(.system(size: 10, weight: .bold))
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
-                                .background(Capsule().fill(showOnlyAfter ? Color.blue : Color.black.opacity(0.7)))
-                                .foregroundColor(.white)
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.bottom, 12)
-                    }
+                Text("ORIGINAL")
+                    .font(.system(size: 9, weight: .bold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(RoundedRectangle(cornerRadius: 4).fill(Color.black.opacity(0.7)))
+                    .foregroundColor(.white)
+                    .padding(8)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.white.opacity(0.02))
+            .cornerRadius(8)
+            
+            // Optimized Panel
+            ZStack(alignment: .topLeading) {
+                if let comp = compressedImage {
+                    Image(nsImage: comp)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
+                
+                Text("OPTIMIZED")
+                    .font(.system(size: 9, weight: .bold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(RoundedRectangle(cornerRadius: 4).fill(Color.blue.opacity(0.85)))
+                    .foregroundColor(.white)
+                    .padding(8)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.white.opacity(0.02))
+            .cornerRadius(8)
+        }
+        .padding(8)
+    }
+    
+    // MARK: - Toggle View (A / B Flip)
+    @ViewBuilder
+    private func toggleComparisonView(width: CGFloat, height: CGFloat) -> some View {
+        ZStack {
+            if showOnlyAfter {
+                if let comp = compressedImage {
+                    Image(nsImage: comp)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: width, height: height)
+                }
+            } else {
+                if let orig = originalImage {
+                    Image(nsImage: orig)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: width, height: height)
+                }
+            }
+            
+            VStack {
+                Spacer()
+                Button {
+                    showOnlyAfter.toggle()
+                } label: {
+                    Text(showOnlyAfter ? "Showing: OPTIMIZED (Click or Space to Flip)" : "Showing: ORIGINAL (Click or Space to Flip)")
+                        .font(.system(size: 10, weight: .bold))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(showOnlyAfter ? Color.blue : Color.black.opacity(0.75)))
+                        .foregroundColor(.white)
+                        .shadow(radius: 3)
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut(.space, modifiers: [])
+                .padding(.bottom, 12)
             }
         }
     }
@@ -279,6 +397,11 @@ public struct BeforeAfterInspectorView: View {
                 }
                 .font(.system(size: 10, design: .rounded))
             }
+            
+            Text("Tip: Pinch trackpad to zoom • Drag to pan • Double-click to reset")
+                .font(.system(size: 9))
+                .foregroundColor(.secondary.opacity(0.8))
+                .padding(.leading, 8)
             
             Spacer()
             
@@ -320,7 +443,6 @@ public struct BeforeAfterInspectorView: View {
     }
     
     private func loadImages() async {
-        // Load original frame
         let orig = await loadMediaPreview(url: result.originalURL, mediaType: result.mediaType)
         let comp = await loadMediaPreview(url: result.outputURL, mediaType: result.mediaType)
         
@@ -337,7 +459,7 @@ public struct BeforeAfterInspectorView: View {
         
         let request = QLThumbnailGenerator.Request(
             fileAt: url,
-            size: CGSize(width: 1200, height: 1200),
+            size: CGSize(width: 1400, height: 1400),
             scale: 2.0,
             representationTypes: .all
         )
@@ -345,6 +467,50 @@ public struct BeforeAfterInspectorView: View {
             return rep.nsImage
         }
         return NSWorkspace.shared.icon(forFile: url.path)
+    }
+}
+
+// MARK: - Zoom & Trackpad Pan Gesture Container
+private struct ZoomPanContainer<Content: View>: View {
+    @Binding var zoomScale: CGFloat
+    @Binding var panOffset: CGSize
+    @Binding var activeDragOffset: CGSize
+    let content: () -> Content
+    
+    var body: some View {
+        content()
+            .gesture(
+                MagnificationGesture()
+                    .onChanged { scale in
+                        zoomScale = max(1.0, min(6.0, scale))
+                    }
+            )
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { value in
+                        if zoomScale > 1.0 {
+                            activeDragOffset = value.translation
+                        }
+                    }
+                    .onEnded { value in
+                        if zoomScale > 1.0 {
+                            panOffset.width += value.translation.width
+                            panOffset.height += value.translation.height
+                            activeDragOffset = .zero
+                        }
+                    }
+            )
+            .onTapGesture(count: 2) {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    if zoomScale > 1.0 {
+                        zoomScale = 1.0
+                        panOffset = .zero
+                        activeDragOffset = .zero
+                    } else {
+                        zoomScale = 2.5
+                    }
+                }
+            }
     }
 }
 
@@ -384,7 +550,7 @@ public final class InspectorWindowController: NSObject, NSWindowDelegate {
         
         let hostingController = NSHostingController(rootView: inspectorView)
         let win = NSWindow(contentViewController: hostingController)
-        win.styleMask = [.titled, .closable, .resizable, .fullSizeContentView]
+        win.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         win.titleVisibility = .hidden
         win.titlebarAppearsTransparent = true
         win.isMovableByWindowBackground = true
@@ -392,7 +558,7 @@ public final class InspectorWindowController: NSObject, NSWindowDelegate {
         win.backgroundColor = .clear
         win.isOpaque = false
         win.hasShadow = true
-        win.setContentSize(NSSize(width: 720, height: 540))
+        win.setContentSize(NSSize(width: 800, height: 580))
         win.center()
         win.delegate = self
         
@@ -405,3 +571,4 @@ public final class InspectorWindowController: NSObject, NSWindowDelegate {
         window = nil
     }
 }
+

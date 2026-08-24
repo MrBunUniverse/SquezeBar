@@ -8,7 +8,6 @@ public struct BeforeAfterInspectorView: View {
     public let onClose: () -> Void
     
     @State private var splitOffset: CGFloat = 0.5 // 0.0 ... 1.0
-    @State private var isDragging: Bool = false
     @State private var originalImage: NSImage?
     @State private var compressedImage: NSImage?
     @State private var inspectorMode: InspectorMode = .split
@@ -32,25 +31,26 @@ public struct BeforeAfterInspectorView: View {
     
     public var body: some View {
         VStack(spacing: 0) {
-            // Header Bar
+            // Header Bar (Acts as window drag handle while keeping buttons clickable)
             headerBar
+                .background(WindowDragRepresentable())
             
             Divider()
-                .opacity(0.2)
+                .opacity(0.25)
             
-            // Comparison Canvas
+            // Comparison Canvas (Captures Pan & Zoom locally, NOT dragging window)
             comparisonCanvas
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.black.opacity(0.5))
+                .background(Color.black.opacity(0.6))
                 .clipped()
             
             Divider()
-                .opacity(0.2)
+                .opacity(0.25)
             
             // Bottom Metadata & Actions Bar
             bottomBar
         }
-        .frame(minWidth: 600, idealWidth: 780, minHeight: 480, idealHeight: 560)
+        .frame(minWidth: 640, idealWidth: 840, minHeight: 500, idealHeight: 600)
         .background(VisualEffectView(material: .hudWindow, blendingMode: .withinWindow))
         .task {
             await loadImages()
@@ -67,10 +67,10 @@ public struct BeforeAfterInspectorView: View {
     
     // MARK: - Header
     private var headerBar: some View {
-        HStack(spacing: 10) {
-            // Space reserved for native macOS Traffic Lights (Close / Minimize)
+        HStack(spacing: 12) {
+            // Spacer to accommodate native macOS window traffic lights inside the standard titlebar area
             Spacer()
-                .frame(width: 58)
+                .frame(width: 68)
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(result.fileName)
@@ -94,7 +94,7 @@ public struct BeforeAfterInspectorView: View {
                         .foregroundColor(.green)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
-                        .background(Capsule().fill(Color.green.opacity(0.12)))
+                        .background(Capsule().fill(Color.green.opacity(0.15)))
                 }
             }
             
@@ -110,6 +110,7 @@ public struct BeforeAfterInspectorView: View {
                 } label: {
                     Image(systemName: "minus.magnifyingglass")
                         .font(.system(size: 11))
+                        .padding(4)
                 }
                 .buttonStyle(.plain)
                 .disabled(zoomScale <= 1.0)
@@ -128,6 +129,7 @@ public struct BeforeAfterInspectorView: View {
                 } label: {
                     Image(systemName: "plus.magnifyingglass")
                         .font(.system(size: 11))
+                        .padding(4)
                 }
                 .buttonStyle(.plain)
                 .disabled(zoomScale >= 5.0)
@@ -138,17 +140,17 @@ public struct BeforeAfterInspectorView: View {
                     } label: {
                         Text("Reset")
                             .font(.system(size: 9, weight: .medium))
-                            .padding(.horizontal, 4)
+                            .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.white.opacity(0.1)))
+                            .background(Capsule().fill(Color.white.opacity(0.12)))
                     }
                     .buttonStyle(.plain)
                     .transition(.opacity)
                 }
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.04)))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.06)))
             
             // Mode Selector
             Picker("Mode", selection: $inspectorMode) {
@@ -159,10 +161,10 @@ public struct BeforeAfterInspectorView: View {
             .pickerStyle(.segmented)
             .frame(width: 220)
         }
-        .padding(.leading, 12)
+        .padding(.leading, 8)
         .padding(.trailing, 16)
-        .padding(.top, 10)
-        .padding(.bottom, 10)
+        .padding(.top, 8)
+        .padding(.bottom, 8)
     }
     
     private func resetZoom() {
@@ -181,8 +183,8 @@ public struct BeforeAfterInspectorView: View {
             let h = geo.size.height
             
             ZStack {
-                // Interactive Scroll/Pinch/Pan Overlay
-                ZoomPanContainer(
+                // Interactive Scroll/Pinch/Pan Container
+                ZoomPanCanvas(
                     zoomScale: $zoomScale,
                     panOffset: $panOffset,
                     activeDragOffset: $activeDragOffset
@@ -201,7 +203,7 @@ public struct BeforeAfterInspectorView: View {
                     .offset(x: currentPan.width, y: currentPan.height)
                 }
                 
-                // Overlay controls that don't scale (e.g. Split Divider line)
+                // Overlay controls that stay crisp in screen coordinates (Split divider line)
                 if inspectorMode == .split {
                     splitHandleOverlay(width: w, height: h)
                 }
@@ -398,7 +400,7 @@ public struct BeforeAfterInspectorView: View {
                 .font(.system(size: 10, design: .rounded))
             }
             
-            Text("Tip: Pinch trackpad to zoom • Drag to pan • Double-click to reset")
+            Text("Pinch / Scroll to zoom • Drag to pan • Double-click to toggle zoom")
                 .font(.system(size: 9))
                 .foregroundColor(.secondary.opacity(0.8))
                 .padding(.leading, 8)
@@ -459,7 +461,7 @@ public struct BeforeAfterInspectorView: View {
         
         let request = QLThumbnailGenerator.Request(
             fileAt: url,
-            size: CGSize(width: 1400, height: 1400),
+            size: CGSize(width: 1600, height: 1600),
             scale: 2.0,
             representationTypes: .all
         )
@@ -470,47 +472,67 @@ public struct BeforeAfterInspectorView: View {
     }
 }
 
-// MARK: - Zoom & Trackpad Pan Gesture Container
-private struct ZoomPanContainer<Content: View>: View {
+// MARK: - Isolated Zoom & Pan Canvas Container
+private struct ZoomPanCanvas<Content: View>: View {
     @Binding var zoomScale: CGFloat
     @Binding var panOffset: CGSize
     @Binding var activeDragOffset: CGSize
     let content: () -> Content
     
     var body: some View {
-        content()
-            .gesture(
-                MagnificationGesture()
-                    .onChanged { scale in
-                        zoomScale = max(1.0, min(6.0, scale))
-                    }
-            )
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 1)
-                    .onChanged { value in
-                        if zoomScale > 1.0 {
-                            activeDragOffset = value.translation
-                        }
-                    }
-                    .onEnded { value in
-                        if zoomScale > 1.0 {
-                            panOffset.width += value.translation.width
-                            panOffset.height += value.translation.height
-                            activeDragOffset = .zero
-                        }
-                    }
-            )
-            .onTapGesture(count: 2) {
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+        ZStack {
+            Color.clear
+                .contentShape(Rectangle())
+            
+            content()
+        }
+        .gesture(
+            MagnificationGesture()
+                .onChanged { scale in
+                    zoomScale = max(1.0, min(6.0, scale))
+                }
+        )
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 1)
+                .onChanged { value in
                     if zoomScale > 1.0 {
-                        zoomScale = 1.0
-                        panOffset = .zero
-                        activeDragOffset = .zero
-                    } else {
-                        zoomScale = 2.5
+                        activeDragOffset = value.translation
                     }
                 }
+                .onEnded { value in
+                    if zoomScale > 1.0 {
+                        panOffset.width += value.translation.width
+                        panOffset.height += value.translation.height
+                        activeDragOffset = .zero
+                    }
+                }
+        )
+        .onTapGesture(count: 2) {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                if zoomScale > 1.0 {
+                    zoomScale = 1.0
+                    panOffset = .zero
+                    activeDragOffset = .zero
+                } else {
+                    zoomScale = 2.5
+                }
             }
+        }
+    }
+}
+
+// MARK: - Window Drag Handler (Only header drags the window)
+private struct WindowDragRepresentable: NSViewRepresentable {
+    func makeNSView(context: Context) -> WindowDragView {
+        WindowDragView()
+    }
+    
+    func updateNSView(_ nsView: WindowDragView, context: Context) {}
+}
+
+private class WindowDragView: NSView {
+    override var mouseDownCanMoveWindow: Bool {
+        return true
     }
 }
 
@@ -550,15 +572,20 @@ public final class InspectorWindowController: NSObject, NSWindowDelegate {
         
         let hostingController = NSHostingController(rootView: inspectorView)
         let win = NSWindow(contentViewController: hostingController)
+        
+        // Standard macOS unified titlebar: traffic lights inside the window frame
         win.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         win.titleVisibility = .hidden
         win.titlebarAppearsTransparent = true
-        win.isMovableByWindowBackground = true
+        
+        // Disable full-window background dragging so image panning works without moving window
+        win.isMovableByWindowBackground = false
+        
         win.level = .floating
-        win.backgroundColor = .clear
-        win.isOpaque = false
+        win.backgroundColor = .windowBackgroundColor
+        win.isOpaque = true
         win.hasShadow = true
-        win.setContentSize(NSSize(width: 800, height: 580))
+        win.setContentSize(NSSize(width: 840, height: 600))
         win.center()
         win.delegate = self
         

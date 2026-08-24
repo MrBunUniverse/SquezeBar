@@ -193,14 +193,18 @@ public struct BeforeAfterInspectorView: View {
                         switch inspectorMode {
                         case .split:
                             splitComparisonView(width: w, height: h)
+                                .scaleEffect(zoomScale)
+                                .offset(x: currentPan.width, y: currentPan.height)
+                                
                         case .sideBySide:
                             sideBySideComparisonView(width: w, height: h)
+                            
                         case .toggle:
                             toggleComparisonView(width: w, height: h)
+                                .scaleEffect(zoomScale)
+                                .offset(x: currentPan.width, y: currentPan.height)
                         }
                     }
-                    .scaleEffect(zoomScale)
-                    .offset(x: currentPan.width, y: currentPan.height)
                 }
                 
                 // Overlay controls that stay crisp in screen coordinates (Split divider line)
@@ -294,53 +298,61 @@ public struct BeforeAfterInspectorView: View {
         }
     }
     
-    // MARK: - Synchronized Side By Side View
+    // MARK: - True Synchronized Dual-Viewport Side By Side (Split-Screen)
     @ViewBuilder
     private func sideBySideComparisonView(width: CGFloat, height: CGFloat) -> some View {
+        let halfWidth = (width - 12) / 2
+        
         HStack(spacing: 8) {
-            // Original Panel
+            // Left Viewport: Original
             ZStack(alignment: .topLeading) {
                 if let orig = originalImage {
                     Image(nsImage: orig)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .frame(width: halfWidth, height: height)
+                        .scaleEffect(zoomScale)
+                        .offset(x: currentPan.width, y: currentPan.height)
                 }
                 
                 Text("ORIGINAL")
                     .font(.system(size: 9, weight: .bold))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(RoundedRectangle(cornerRadius: 4).fill(Color.black.opacity(0.7)))
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(RoundedRectangle(cornerRadius: 4).fill(Color.black.opacity(0.75)))
                     .foregroundColor(.white)
-                    .padding(8)
+                    .padding(10)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.white.opacity(0.02))
+            .frame(width: halfWidth, height: height)
+            .background(Color.black.opacity(0.3))
+            .clipped()
             .cornerRadius(8)
             
-            // Optimized Panel
+            // Right Viewport: Optimized (Mirrors same zoom & pan transformation)
             ZStack(alignment: .topLeading) {
                 if let comp = compressedImage {
                     Image(nsImage: comp)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .frame(width: halfWidth, height: height)
+                        .scaleEffect(zoomScale)
+                        .offset(x: currentPan.width, y: currentPan.height)
                 }
                 
                 Text("OPTIMIZED")
                     .font(.system(size: 9, weight: .bold))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
                     .background(RoundedRectangle(cornerRadius: 4).fill(Color.blue.opacity(0.85)))
                     .foregroundColor(.white)
-                    .padding(8)
+                    .padding(10)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.white.opacity(0.02))
+            .frame(width: halfWidth, height: height)
+            .background(Color.black.opacity(0.3))
+            .clipped()
             .cornerRadius(8)
         }
-        .padding(8)
+        .padding(.horizontal, 2)
     }
     
     // MARK: - Toggle View (A / B Flip)

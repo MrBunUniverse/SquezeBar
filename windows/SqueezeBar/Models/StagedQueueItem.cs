@@ -54,6 +54,20 @@ public class StagedQueueItem : INotifyPropertyChanged
         set { _customTargetSizeMB = value; OnPropertyChanged(); OnPropertyChanged(nameof(CustomSettingSummary)); }
     }
 
+    private AudioBitratePreference _customAudioBitrate = AudioBitratePreference.K192;
+    public AudioBitratePreference CustomAudioBitrate
+    {
+        get => _customAudioBitrate;
+        set { _customAudioBitrate = value; OnPropertyChanged(); OnPropertyChanged(nameof(CustomSettingSummary)); }
+    }
+
+    private int _customPdfDpi = 150;
+    public int CustomPdfDpi
+    {
+        get => _customPdfDpi;
+        set { _customPdfDpi = value; OnPropertyChanged(); OnPropertyChanged(nameof(CustomSettingSummary)); }
+    }
+
     private bool _stripMetadata = true;
     public bool StripMetadata
     {
@@ -119,6 +133,8 @@ public class StagedQueueItem : INotifyPropertyChanged
 
         CustomImageFormat = baseConfig.ImageFormatPolicy;
         CustomVideoCodec = baseConfig.VideoCodec;
+        CustomAudioBitrate = baseConfig.AudioBitrate;
+        CustomPdfDpi = baseConfig.PdfDPI;
         CustomTargetSizeMode = baseConfig.TargetSizeMode;
         CustomTargetSizeMB = baseConfig.CustomTargetSizeMB;
         StripMetadata = baseConfig.StripMetadata;
@@ -133,6 +149,8 @@ public class StagedQueueItem : INotifyPropertyChanged
         config.VideoQuality = CustomQuality;
         config.VideoResolutionScale = CustomResolutionScale;
         config.VideoCodec = CustomVideoCodec;
+        config.AudioBitrate = CustomAudioBitrate;
+        config.PdfDPI = CustomPdfDpi;
         config.TargetSizeMode = CustomTargetSizeMode;
         config.CustomTargetSizeMB = CustomTargetSizeMB;
         config.StripMetadata = StripMetadata;

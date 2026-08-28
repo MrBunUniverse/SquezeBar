@@ -86,13 +86,35 @@ public class AppState : INotifyPropertyChanged
         set { _targetSizeMode = value; OnPropertyChanged(); OnPropertyChanged(nameof(TargetLimitLabel)); }
     }
 
+    private double _customTargetSizeMB = 25.0;
+    public double CustomTargetSizeMB
+    {
+        get => _customTargetSizeMB;
+        set { _customTargetSizeMB = value; OnPropertyChanged(); }
+    }
+
+    private bool _preserveResolutionInTargetMode = true;
+    public bool PreserveResolutionInTargetMode
+    {
+        get => _preserveResolutionInTargetMode;
+        set { _preserveResolutionInTargetMode = value; OnPropertyChanged(); }
+    }
+
+    private bool _preserveAudioQualityInTargetMode = false;
+    public bool PreserveAudioQualityInTargetMode
+    {
+        get => _preserveAudioQualityInTargetMode;
+        set { _preserveAudioQualityInTargetMode = value; OnPropertyChanged(); }
+    }
+
     public string TargetLimitLabel => TargetSizeMode switch
     {
-        TargetSizeMode.Off => "Off",
-        TargetSizeMode.Discord25 => "25MB (Discord)",
-        TargetSizeMode.Email10 => "10MB (Email)",
-        TargetSizeMode.Discord50 => "50MB (Nitro)",
-        _ => "Custom"
+        TargetSizeMode.Off => "Manual",
+        TargetSizeMode.Discord25 => "≤ 25 MB",
+        TargetSizeMode.Email10 => "≤ 10 MB",
+        TargetSizeMode.Discord50 => "≤ 50 MB",
+        TargetSizeMode.Custom => $"≤ {CustomTargetSizeMB:F0} MB",
+        _ => "Manual"
     };
 
     // Images Settings
@@ -143,6 +165,13 @@ public class AppState : INotifyPropertyChanged
         set { _videoCodec = value; OnPropertyChanged(); OnPropertyChanged(nameof(VideoSummaryText)); }
     }
 
+    private int _videoFramerate = 0; // 0 = Original
+    public int VideoFramerate
+    {
+        get => _videoFramerate;
+        set { _videoFramerate = value; OnPropertyChanged(); OnPropertyChanged(nameof(VideoSummaryText)); }
+    }
+
     private bool _videoRemoveAudio = false;
     public bool VideoRemoveAudio
     {
@@ -150,7 +179,7 @@ public class AppState : INotifyPropertyChanged
         set { _videoRemoveAudio = value; OnPropertyChanged(); }
     }
 
-    public string VideoSummaryText => $"{VideoCodec} • {VideoQualityPercent}% Q • {(int)(VideoResolutionScale * 100)}% Scale";
+    public string VideoSummaryText => $"{VideoCodec}{(VideoFramerate > 0 ? $" • {VideoFramerate} FPS" : "")} • {VideoQualityPercent}% Q • {(int)(VideoResolutionScale * 100)}% Scale";
 
     // Audio Settings
     private AudioBitratePreference _audioBitrate = AudioBitratePreference.K192;

@@ -1,38 +1,45 @@
 # SqueezeBar
 
-A lightweight, hardware-accelerated media compression utility for **macOS** *(Windows version in active development)*.
+A lightweight, universal media compression utility for **macOS** and **Windows**.
 
-SqueezeBar provides effortless 1-drop batch media compression, a desktop floating drop basket, and per-file fine-tuning with zero telemetry and 100% on-device processing.
+SqueezeBar provides effortless 1-drop batch media compression, dual-zone quick/staged workflows, and per-file fine-tuning with zero telemetry and 100% on-device processing.
 
 ---
 
-## macOS Version (v0.98 • Available Now)
+## Downloads
 
-### Features
-- **Desktop Floating Drop Ball**: Edge-docking magnetic liquid glass basket with Apple bezel edge-tab morphing and proximity cursor detection.
-- **Dual-Zone Popover Interface**: Instant Quick Squeeze + Custom Staged Queue with per-file sliders.
-- **Individual Per-File Settings**: Custom quality, scale, format/codec, target size limits (Discord 25MB, Email 10MB), and metadata privacy toggles.
-- **100% Native & Lightweight (~2.3 MB)**: Powered by Apple Silicon Hardware Media Engines (`AVFoundation`, `VideoToolbox`, `ImageIO`, `PDFKit`).
-
-### Download macOS Installer
+### 🍎 macOS Version (v0.98 • Stable)
 Download the latest drag-and-drop installer: **[`SqueezeBar-0.98.dmg`](https://github.com/MrBunUniverse/SquezeBar/releases/latest)**
 
-### Build from Source (macOS)
+### 🪟 Windows Version (v0.98 • Beta Portable)
+Download the standalone portable single-file executable: **[`SqueezeBar.exe`](https://github.com/MrBunUniverse/SquezeBar/releases/latest)**
+- **100% Portable**: No installation or .NET runtime setup required—download and double-click to run.
+
+---
+
+## Features
+- **Dual-Zone Interface**: Instant Quick Drop + Custom Staged Queue with per-file sliders.
+- **1:1 Multi-Deck Controls**: Continuous quality sliders, target size automation (25MB Discord, 10MB Email, Custom MB), resolution scaling, framerate selection (FPS), and format conversion.
+- **Individual Per-File Customization**: Custom settings per queued media item before squeezing.
+- **macOS Floating Drop Ball**: Edge-docking magnetic liquid glass basket with Apple bezel edge-tab morphing and proximity cursor detection.
+- **Zero Telemetry & 100% Local**: All processing executes purely on-device with privacy-first metadata stripping.
+
+---
+
+## Build from Source
+
+### macOS
 ```bash
 cd macOS
-# Build production bundle
 ./scripts/bundle_app.sh
-
 # Or create the DMG installer
 ./scripts/create_dmg.sh
 ```
 
----
-
-## Windows Version (🚧 In Active Development)
-
-> [!NOTE]
-> The Windows version is currently in active development and will be available in an upcoming release. Pre-built binaries are currently available for macOS.
+### Windows
+```bash
+./windows/scripts/build_windows.sh
+```
 
 ---
 

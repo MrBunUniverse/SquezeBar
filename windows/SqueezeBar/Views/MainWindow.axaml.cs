@@ -17,17 +17,6 @@ public partial class MainWindow : Window
 {
     private readonly AppState _state = AppState.Shared;
 
-    // macOS-style theme name labels
-    private static readonly (string hex, string label)[] ThemeSwatches =
-    {
-        ("#00D2FF", "Cyan"),
-        ("#00E676", "Emerald"),
-        ("#A855F7", "Purple"),
-        ("#FF9500", "Amber"),
-        ("#FF2D55", "Rose"),
-        ("#007AFF", "Blue"),
-    };
-
     public MainWindow()
     {
         InitializeComponent();
@@ -60,31 +49,16 @@ public partial class MainWindow : Window
                 ActiveJobsBorder.IsVisible = _state.ActiveJobs.Any(j => !j.IsCompleted);
                 FooterStatusText.Text = _state.IsProcessing ? "Optimizing..." : "Ready";
             }
-            else if (e.PropertyName == nameof(_state.ImageSummaryText))
+            else if (e.PropertyName == nameof(_state.ImageSummaryText) ||
+                     e.PropertyName == nameof(_state.VideoSummaryText) ||
+                     e.PropertyName == nameof(_state.AudioSummaryText) ||
+                     e.PropertyName == nameof(_state.PdfSummaryText))
             {
-                var fmt = _state.ImageFormatPolicy switch
-                {
-                    ImageFormatPolicy.ModernWebP => "WebP",
-                    ImageFormatPolicy.WebJPEG => "JPEG",
-                    _ => "Original"
-                };
-                ImagesTileFormat.Text = fmt;
-                ImagesTileQuality.Text = $"{_state.ImageQualityPercent}% Q · {(int)(_state.ImageResolutionScale * 100)}%";
-            }
-            else if (e.PropertyName == nameof(_state.VideoSummaryText))
-            {
-                VideoTileCodec.Text = _state.VideoCodec.ToString();
-                VideoTileQuality.Text = $"{_state.VideoQualityPercent}% Q · {(int)(_state.VideoResolutionScale * 100)}%";
-            }
-            else if (e.PropertyName == nameof(_state.AudioSummaryText))
-            {
-                AudioTileBitrate.Text = $"{_state.AudioBitrate.ToString().TrimStart('K')} kbps";
-            }
-            else if (e.PropertyName == nameof(_state.PdfSummaryText))
-            {
-                PdfTileDpi.Text = $"{_state.PdfDpi} DPI";
+                UpdateCategoryTileDisplays();
             }
         };
+
+        UpdateCategoryTileDisplays();
 
         // Sliders
         ImgQualitySlider.Value = _state.ImageQuality;
@@ -93,7 +67,17 @@ public partial class MainWindow : Window
             if (e.Property.Name == nameof(Slider.Value))
             {
                 _state.ImageQuality = ImgQualitySlider.Value;
-                ImgQualityLabel.Text = $"{_state.ImageQualityPercent}%";
+                ImgQualityPercentText.Text = $"{_state.ImageQualityPercent}%";
+            }
+        };
+
+        ImgScaleSlider.Value = _state.ImageResolutionScale;
+        ImgScaleSlider.PropertyChanged += (s, e) =>
+        {
+            if (e.Property.Name == nameof(Slider.Value))
+            {
+                _state.ImageResolutionScale = ImgScaleSlider.Value;
+                ImgResolutionScaleText.Text = _state.ImageResolutionScale >= 0.99 ? "Original (100%)" : $"{(int)(_state.ImageResolutionScale * 100)}% Scale";
             }
         };
 
@@ -103,46 +87,41 @@ public partial class MainWindow : Window
             if (e.Property.Name == nameof(Slider.Value))
             {
                 _state.VideoQuality = VidQualitySlider.Value;
-                VidQualityLabel.Text = $"{_state.VideoQualityPercent}%";
+                VidBitratePercentText.Text = $"{_state.VideoQualityPercent}% of source";
             }
         };
 
-        // Format Combos
-        ImgFormatCombo.SelectedIndex = 0;
-        ImgFormatCombo.SelectionChanged += (s, e) =>
+        VidScaleSlider.Value = _state.VideoResolutionScale;
+        VidScaleSlider.PropertyChanged += (s, e) =>
         {
-            _state.ImageFormatPolicy = ImgFormatCombo.SelectedIndex switch
+            if (e.Property.Name == nameof(Slider.Value))
             {
-                0 => ImageFormatPolicy.ModernWebP,
-                1 => ImageFormatPolicy.WebJPEG,
-                _ => ImageFormatPolicy.PreserveOriginal
-            };
+                _state.VideoResolutionScale = VidScaleSlider.Value;
+                VidResolutionScaleText.Text = _state.VideoResolutionScale >= 0.99 ? "Original (100%)" : $"{(int)(_state.VideoResolutionScale * 100)}% Scale";
+            }
         };
 
-        VidCodecCombo.SelectedIndex = 0;
-        VidCodecCombo.SelectionChanged += (s, e) =>
+        CustomTargetSizeSlider.Value = _state.CustomTargetSizeMB;
+        CustomTargetSizeSlider.PropertyChanged += (s, e) =>
         {
-            _state.VideoCodec = VidCodecCombo.SelectedIndex switch
+            if (e.Property.Name == nameof(Slider.Value))
             {
-                1 => VideoCodecPreference.H264,
-                2 => VideoCodecPreference.AnimatedGIF,
-                _ => VideoCodecPreference.HEVC
-            };
+                _state.CustomTargetSizeMB = CustomTargetSizeSlider.Value;
+                CustomTargetSizeLabel.Text = $"{_state.CustomTargetSizeMB:F0} MB";
+                TargetLimitDisplay.Text = $"≤ {_state.CustomTargetSizeMB:F0} MB";
+            }
         };
 
-        AudioBitrateCombo.SelectedIndex = 2;
-        AudioBitrateCombo.SelectionChanged += (s, e) =>
-        {
-            _state.AudioBitrate = AudioBitrateCombo.SelectedIndex switch
-            {
-                0 => AudioBitratePreference.K64,
-                1 => AudioBitratePreference.K128,
-                3 => AudioBitratePreference.K256,
-                4 => AudioBitratePreference.K320,
-                _ => AudioBitratePreference.K192
-            };
-        };
+        LockResolutionCheck.IsChecked = _state.PreserveResolutionInTargetMode;
+        LockResolutionCheck.IsCheckedChanged += (s, e) => _state.PreserveResolutionInTargetMode = LockResolutionCheck.IsChecked ?? true;
 
+        LockAudioCheck.IsChecked = _state.PreserveAudioQualityInTargetMode;
+        LockAudioCheck.IsCheckedChanged += (s, e) => _state.PreserveAudioQualityInTargetMode = LockAudioCheck.IsChecked ?? false;
+
+        RemoveAudioCheck.IsChecked = _state.VideoRemoveAudio;
+        RemoveAudioCheck.IsCheckedChanged += (s, e) => _state.VideoRemoveAudio = RemoveAudioCheck.IsChecked ?? false;
+
+        PdfGrayscaleCheck.IsChecked = _state.PdfGrayscale;
         PdfGrayscaleCheck.IsCheckedChanged += (s, e) => _state.PdfGrayscale = PdfGrayscaleCheck.IsChecked ?? false;
 
         SettingsSuffixBox.PropertyChanged += (s, e) =>
@@ -190,6 +169,13 @@ public partial class MainWindow : Window
     private void SelectAudioCategory_PointerPressed(object? sender, PointerPressedEventArgs e) => ToggleCategory(MediaCategory.Audio);
     private void SelectPdfCategory_PointerPressed(object? sender, PointerPressedEventArgs e) => ToggleCategory(MediaCategory.Pdf);
 
+    private void CloseDrawer_Click(object? sender, RoutedEventArgs e)
+    {
+        _state.IsFormatDrawerExpanded = false;
+        FormatDrawerBorder.IsVisible = false;
+        UpdateTileStyles();
+    }
+
     private void ToggleCategory(MediaCategory category)
     {
         if (_state.ActiveFormatCategory == category && _state.IsFormatDrawerExpanded)
@@ -202,42 +188,114 @@ public partial class MainWindow : Window
             _state.ActiveFormatCategory = category;
             _state.IsFormatDrawerExpanded = true;
             FormatDrawerBorder.IsVisible = true;
+
+            DrawerCategoryTitle.Text = category switch
+            {
+                MediaCategory.Images => "Image Settings",
+                MediaCategory.Video => "Video Settings",
+                MediaCategory.Audio => "Audio Settings",
+                MediaCategory.Pdf => "PDF Settings",
+                _ => "Format Settings"
+            };
+
             ImagesDeckPanel.IsVisible = category == MediaCategory.Images;
             VideoDeckPanel.IsVisible = category == MediaCategory.Video;
             AudioDeckPanel.IsVisible = category == MediaCategory.Audio;
             PdfDeckPanel.IsVisible = category == MediaCategory.Pdf;
+            LockAudioCheck.IsVisible = category == MediaCategory.Video;
         }
         UpdateTileStyles();
+        UpdateCategoryTileDisplays();
+    }
+
+    private void UpdateCategoryTileDisplays()
+    {
+        // Images
+        var imgFmt = _state.ImageFormatPolicy switch
+        {
+            ImageFormatPolicy.ModernWebP => "Modern WebP",
+            ImageFormatPolicy.WebJPEG => "Web JPEG",
+            _ => "Preserve Original"
+        };
+        string imgScale = _state.ImageResolutionScale >= 0.99 ? "100%" : $"{(int)(_state.ImageResolutionScale * 100)}%";
+        ImagesTileFormat.Text = imgFmt;
+        ImagesTileQuality.Text = $"{_state.ImageQualityPercent}% Quality • {imgScale} Scale";
+
+        // Video
+        var vidCodec = _state.VideoCodec switch
+        {
+            VideoCodecPreference.H264 => "H.264",
+            VideoCodecPreference.AnimatedGIF => "GIF",
+            _ => "HEVC"
+        };
+        var vidFps = _state.VideoFramerate > 0 ? $"{_state.VideoFramerate} FPS" : "Original";
+        string vidScale = _state.VideoResolutionScale >= 0.99 ? "100%" : $"{(int)(_state.VideoResolutionScale * 100)}%";
+        VideoTileCodec.Text = $"{vidCodec} • {vidFps}";
+        VideoTileQuality.Text = $"{_state.VideoQualityPercent}% Quality • {vidScale} Scale";
+
+        // Audio
+        AudioTileBitrate.Text = $"{_state.AudioBitrate.ToString().TrimStart('K')} kbps";
+        AudioTileSubtitle.Text = "AAC Stereo";
+
+        // PDF
+        PdfTileDpi.Text = $"{_state.PdfDpi} DPI";
+        PdfTileSubtitle.Text = _state.PdfGrayscale ? "Grayscale • Optimized" : "Optimized";
     }
 
     private void UpdateTileStyles()
     {
         var accentBrush = SolidColorBrush.Parse(_state.AccentColorHex);
         var defaultBorder = SolidColorBrush.Parse("#2D2D32");
+        var defaultBg = SolidColorBrush.Parse("#222226");
+        var activeBg = SolidColorBrush.Parse("#172C35"); // Pre-composited subtle accent tint
+        var defaultTitle = SolidColorBrush.Parse("#B0B0BE");
+        var mutedChevron = SolidColorBrush.Parse("#55556A");
         bool exp = _state.IsFormatDrawerExpanded;
 
-        ImagesTileBorder.BorderBrush = (exp && _state.ActiveFormatCategory == MediaCategory.Images) ? accentBrush : defaultBorder;
-        ImagesChevron.Text = (exp && _state.ActiveFormatCategory == MediaCategory.Images) ? "▲" : "▼";
-        ImagesChevron.Foreground = (exp && _state.ActiveFormatCategory == MediaCategory.Images) ? SolidColorBrush.Parse(_state.AccentColorHex) : SolidColorBrush.Parse("#55556A");
+        // Images
+        bool imgActive = exp && _state.ActiveFormatCategory == MediaCategory.Images;
+        ImagesTileBorder.BorderBrush = imgActive ? accentBrush : defaultBorder;
+        ImagesTileBorder.BorderThickness = imgActive ? new Thickness(1.5) : new Thickness(0.5);
+        ImagesTileBorder.Background = imgActive ? activeBg : defaultBg;
+        ImagesTitleText.Foreground = imgActive ? accentBrush : defaultTitle;
+        ImagesChevron.Text = imgActive ? "▲" : "▼";
+        ImagesChevron.Foreground = imgActive ? accentBrush : mutedChevron;
 
-        VideoTileBorder.BorderBrush = (exp && _state.ActiveFormatCategory == MediaCategory.Video) ? accentBrush : defaultBorder;
-        VideoChevron.Text = (exp && _state.ActiveFormatCategory == MediaCategory.Video) ? "▲" : "▼";
-        VideoChevron.Foreground = (exp && _state.ActiveFormatCategory == MediaCategory.Video) ? SolidColorBrush.Parse(_state.AccentColorHex) : SolidColorBrush.Parse("#55556A");
+        // Video
+        bool vidActive = exp && _state.ActiveFormatCategory == MediaCategory.Video;
+        VideoTileBorder.BorderBrush = vidActive ? accentBrush : defaultBorder;
+        VideoTileBorder.BorderThickness = vidActive ? new Thickness(1.5) : new Thickness(0.5);
+        VideoTileBorder.Background = vidActive ? activeBg : defaultBg;
+        VideoTitleText.Foreground = vidActive ? accentBrush : defaultTitle;
+        VideoChevron.Text = vidActive ? "▲" : "▼";
+        VideoChevron.Foreground = vidActive ? accentBrush : mutedChevron;
 
-        AudioTileBorder.BorderBrush = (exp && _state.ActiveFormatCategory == MediaCategory.Audio) ? accentBrush : defaultBorder;
-        AudioChevron.Text = (exp && _state.ActiveFormatCategory == MediaCategory.Audio) ? "▲" : "▼";
-        AudioChevron.Foreground = (exp && _state.ActiveFormatCategory == MediaCategory.Audio) ? SolidColorBrush.Parse(_state.AccentColorHex) : SolidColorBrush.Parse("#55556A");
+        // Audio
+        bool audActive = exp && _state.ActiveFormatCategory == MediaCategory.Audio;
+        AudioTileBorder.BorderBrush = audActive ? accentBrush : defaultBorder;
+        AudioTileBorder.BorderThickness = audActive ? new Thickness(1.5) : new Thickness(0.5);
+        AudioTileBorder.Background = audActive ? activeBg : defaultBg;
+        AudioTitleText.Foreground = audActive ? accentBrush : defaultTitle;
+        AudioChevron.Text = audActive ? "▲" : "▼";
+        AudioChevron.Foreground = audActive ? accentBrush : mutedChevron;
 
-        PdfTileBorder.BorderBrush = (exp && _state.ActiveFormatCategory == MediaCategory.Pdf) ? accentBrush : defaultBorder;
-        PdfChevron.Text = (exp && _state.ActiveFormatCategory == MediaCategory.Pdf) ? "▲" : "▼";
-        PdfChevron.Foreground = (exp && _state.ActiveFormatCategory == MediaCategory.Pdf) ? SolidColorBrush.Parse(_state.AccentColorHex) : SolidColorBrush.Parse("#55556A");
+        // PDF
+        bool pdfActive = exp && _state.ActiveFormatCategory == MediaCategory.Pdf;
+        PdfTileBorder.BorderBrush = pdfActive ? accentBrush : defaultBorder;
+        PdfTileBorder.BorderThickness = pdfActive ? new Thickness(1.5) : new Thickness(0.5);
+        PdfTileBorder.Background = pdfActive ? activeBg : defaultBg;
+        PdfTitleText.Foreground = pdfActive ? accentBrush : defaultTitle;
+        PdfChevron.Text = pdfActive ? "▲" : "▼";
+        PdfChevron.Foreground = pdfActive ? accentBrush : mutedChevron;
     }
 
-    // ── Presets ──
-    private void PresetOff_Click(object? sender, RoutedEventArgs e) { _state.TargetSizeMode = TargetSizeMode.Off; QuickDropLimitPill.Text = "Manual Quality"; UpdatePresetButtonStyles(PresetOffBtn); }
-    private void Preset25_Click(object? sender, RoutedEventArgs e) { _state.TargetSizeMode = TargetSizeMode.Discord25; QuickDropLimitPill.Text = "25 MB Limit"; UpdatePresetButtonStyles(Preset25Btn); }
-    private void Preset10_Click(object? sender, RoutedEventArgs e) { _state.TargetSizeMode = TargetSizeMode.Email10; QuickDropLimitPill.Text = "10 MB Limit"; UpdatePresetButtonStyles(Preset10Btn); }
-    private void Preset50_Click(object? sender, RoutedEventArgs e) { _state.TargetSizeMode = TargetSizeMode.Discord50; QuickDropLimitPill.Text = "50 MB Limit"; UpdatePresetButtonStyles(Preset50Btn); }
+    // ── Target Size Limits ──
+    private void PresetOff_Click(object? sender, RoutedEventArgs e) { _state.TargetSizeMode = TargetSizeMode.Off; TargetLimitDisplay.Text = "Manual"; CustomTargetSizePanel.IsVisible = false; UpdatePresetButtonStyles(PresetOffBtn); }
+    private void Preset50_Click(object? sender, RoutedEventArgs e) { _state.TargetSizeMode = TargetSizeMode.Discord50; TargetLimitDisplay.Text = "≤ 50 MB"; CustomTargetSizePanel.IsVisible = false; UpdatePresetButtonStyles(Preset50Btn); }
+    private void Preset25_Click(object? sender, RoutedEventArgs e) { _state.TargetSizeMode = TargetSizeMode.Discord25; TargetLimitDisplay.Text = "≤ 25 MB"; CustomTargetSizePanel.IsVisible = false; UpdatePresetButtonStyles(Preset25Btn); }
+    private void Preset10_Click(object? sender, RoutedEventArgs e) { _state.TargetSizeMode = TargetSizeMode.Email10; TargetLimitDisplay.Text = "≤ 10 MB"; CustomTargetSizePanel.IsVisible = false; UpdatePresetButtonStyles(Preset10Btn); }
+    private void Preset2_Click(object? sender, RoutedEventArgs e) { _state.TargetSizeMode = TargetSizeMode.Custom; _state.CustomTargetSizeMB = 2.0; TargetLimitDisplay.Text = "≤ 2 MB"; CustomTargetSizePanel.IsVisible = false; UpdatePresetButtonStyles(Preset2Btn); }
+    private void PresetCustom_Click(object? sender, RoutedEventArgs e) { _state.TargetSizeMode = TargetSizeMode.Custom; TargetLimitDisplay.Text = $"≤ {_state.CustomTargetSizeMB:F0} MB"; CustomTargetSizePanel.IsVisible = true; UpdatePresetButtonStyles(PresetCustomBtn); }
 
     private void UpdatePresetButtonStyles(Button activeBtn)
     {
@@ -245,30 +303,7 @@ public partial class MainWindow : Window
         var activeBg = SolidColorBrush.Parse(_state.AccentColorHex);
         var inactiveFg = SolidColorBrush.Parse("#A0A0B0");
 
-        foreach (var btn in new[] { PresetOffBtn, Preset25Btn, Preset10Btn, Preset50Btn })
-        {
-            btn.Background = inactive;
-            btn.Foreground = inactiveFg;
-            btn.BorderBrush = SolidColorBrush.Parse("#2D2D32");
-        }
-        activeBtn.Background = activeBg;
-        activeBtn.Foreground = Brushes.Black;
-        activeBtn.BorderBrush = Brushes.Transparent;
-    }
-
-    // ── Resolution Buttons ──
-    private void ImgScale100_Click(object? sender, RoutedEventArgs e) { _state.ImageResolutionScale = 1.0; UpdateImgScaleButtons(ImgScale100Btn); }
-    private void ImgScale75_Click(object? sender, RoutedEventArgs e) { _state.ImageResolutionScale = 0.75; UpdateImgScaleButtons(ImgScale75Btn); }
-    private void ImgScale50_Click(object? sender, RoutedEventArgs e) { _state.ImageResolutionScale = 0.50; UpdateImgScaleButtons(ImgScale50Btn); }
-    private void ImgScale25_Click(object? sender, RoutedEventArgs e) { _state.ImageResolutionScale = 0.25; UpdateImgScaleButtons(ImgScale25Btn); }
-
-    private void UpdateImgScaleButtons(Button activeBtn)
-    {
-        var inactive = SolidColorBrush.Parse("#28282C");
-        var activeBg = SolidColorBrush.Parse(_state.AccentColorHex);
-        var inactiveFg = SolidColorBrush.Parse("#A0A0B0");
-
-        foreach (var btn in new[] { ImgScale100Btn, ImgScale75Btn, ImgScale50Btn, ImgScale25Btn })
+        foreach (var btn in new[] { PresetOffBtn, Preset50Btn, Preset25Btn, Preset10Btn, Preset2Btn, PresetCustomBtn })
         {
             btn.Background = inactive;
             btn.Foreground = inactiveFg;
@@ -281,52 +316,75 @@ public partial class MainWindow : Window
         activeBtn.FontWeight = FontWeight.SemiBold;
     }
 
-    private void VidScale100_Click(object? sender, RoutedEventArgs e) { _state.VideoResolutionScale = 1.0; UpdateVidScaleButtons(VidScale100Btn); }
-    private void VidScale75_Click(object? sender, RoutedEventArgs e) { _state.VideoResolutionScale = 0.75; UpdateVidScaleButtons(VidScale75Btn); }
-    private void VidScale50_Click(object? sender, RoutedEventArgs e) { _state.VideoResolutionScale = 0.50; UpdateVidScaleButtons(VidScale50Btn); }
-    private void VidScale25_Click(object? sender, RoutedEventArgs e) { _state.VideoResolutionScale = 0.25; UpdateVidScaleButtons(VidScale25Btn); }
+    // ── Video Presets & Controls ──
+    private void VidPresetMax_Click(object? sender, RoutedEventArgs e) { _state.VideoQuality = 0.35; VidQualitySlider.Value = 0.35; UpdatePillGroup(VidPresetMaxBtn, VidPresetBalBtn, VidPresetLosslessBtn); }
+    private void VidPresetBal_Click(object? sender, RoutedEventArgs e) { _state.VideoQuality = 0.70; VidQualitySlider.Value = 0.70; UpdatePillGroup(VidPresetBalBtn, VidPresetMaxBtn, VidPresetLosslessBtn); }
+    private void VidPresetLossless_Click(object? sender, RoutedEventArgs e) { _state.VideoQuality = 0.95; VidQualitySlider.Value = 0.95; UpdatePillGroup(VidPresetLosslessBtn, VidPresetMaxBtn, VidPresetBalBtn); }
 
-    private void UpdateVidScaleButtons(Button activeBtn)
+    private void VidScale25_Click(object? sender, RoutedEventArgs e) { _state.VideoResolutionScale = 0.25; VidScaleSlider.Value = 0.25; UpdatePillGroup(VidScale25Btn, VidScale50Btn, VidScale75Btn, VidScale100Btn); }
+    private void VidScale50_Click(object? sender, RoutedEventArgs e) { _state.VideoResolutionScale = 0.50; VidScaleSlider.Value = 0.50; UpdatePillGroup(VidScale50Btn, VidScale25Btn, VidScale75Btn, VidScale100Btn); }
+    private void VidScale75_Click(object? sender, RoutedEventArgs e) { _state.VideoResolutionScale = 0.75; VidScaleSlider.Value = 0.75; UpdatePillGroup(VidScale75Btn, VidScale25Btn, VidScale50Btn, VidScale100Btn); }
+    private void VidScale100_Click(object? sender, RoutedEventArgs e) { _state.VideoResolutionScale = 1.0; VidScaleSlider.Value = 1.0; UpdatePillGroup(VidScale100Btn, VidScale25Btn, VidScale50Btn, VidScale75Btn); }
+
+    private void FpsOrig_Click(object? sender, RoutedEventArgs e) { _state.VideoFramerate = 0; VidFramerateText.Text = "Original"; UpdatePillGroup(FpsOrigBtn, Fps60Btn, Fps50Btn, Fps30Btn, Fps25Btn, Fps24Btn, Fps15Btn, Fps12Btn); }
+    private void Fps60_Click(object? sender, RoutedEventArgs e) { _state.VideoFramerate = 60; VidFramerateText.Text = "60 FPS"; UpdatePillGroup(Fps60Btn, FpsOrigBtn, Fps50Btn, Fps30Btn, Fps25Btn, Fps24Btn, Fps15Btn, Fps12Btn); }
+    private void Fps50_Click(object? sender, RoutedEventArgs e) { _state.VideoFramerate = 50; VidFramerateText.Text = "50 FPS"; UpdatePillGroup(Fps50Btn, FpsOrigBtn, Fps60Btn, Fps30Btn, Fps25Btn, Fps24Btn, Fps15Btn, Fps12Btn); }
+    private void Fps30_Click(object? sender, RoutedEventArgs e) { _state.VideoFramerate = 30; VidFramerateText.Text = "30 FPS"; UpdatePillGroup(Fps30Btn, FpsOrigBtn, Fps60Btn, Fps50Btn, Fps25Btn, Fps24Btn, Fps15Btn, Fps12Btn); }
+    private void Fps25_Click(object? sender, RoutedEventArgs e) { _state.VideoFramerate = 25; VidFramerateText.Text = "25 FPS"; UpdatePillGroup(Fps25Btn, FpsOrigBtn, Fps60Btn, Fps50Btn, Fps30Btn, Fps24Btn, Fps15Btn, Fps12Btn); }
+    private void Fps24_Click(object? sender, RoutedEventArgs e) { _state.VideoFramerate = 24; VidFramerateText.Text = "24 FPS"; UpdatePillGroup(Fps24Btn, FpsOrigBtn, Fps60Btn, Fps50Btn, Fps30Btn, Fps25Btn, Fps15Btn, Fps12Btn); }
+    private void Fps15_Click(object? sender, RoutedEventArgs e) { _state.VideoFramerate = 15; VidFramerateText.Text = "15 FPS"; UpdatePillGroup(Fps15Btn, FpsOrigBtn, Fps60Btn, Fps50Btn, Fps30Btn, Fps25Btn, Fps24Btn, Fps12Btn); }
+    private void Fps12_Click(object? sender, RoutedEventArgs e) { _state.VideoFramerate = 12; VidFramerateText.Text = "12 FPS"; UpdatePillGroup(Fps12Btn, FpsOrigBtn, Fps60Btn, Fps50Btn, Fps30Btn, Fps25Btn, Fps24Btn, Fps15Btn); }
+
+    private void CodecHevc_Click(object? sender, RoutedEventArgs e) { _state.VideoCodec = VideoCodecPreference.HEVC; UpdatePillGroup(CodecHevcBtn, CodecH264Btn, CodecGifBtn); }
+    private void CodecH264_Click(object? sender, RoutedEventArgs e) { _state.VideoCodec = VideoCodecPreference.H264; UpdatePillGroup(CodecH264Btn, CodecHevcBtn, CodecGifBtn); }
+    private void CodecGif_Click(object? sender, RoutedEventArgs e) { _state.VideoCodec = VideoCodecPreference.AnimatedGIF; UpdatePillGroup(CodecGifBtn, CodecHevcBtn, CodecH264Btn); }
+
+    // ── Image Presets & Controls ──
+    private void ImgPresetMax_Click(object? sender, RoutedEventArgs e) { _state.ImageQuality = 0.40; ImgQualitySlider.Value = 0.40; UpdatePillGroup(ImgPresetMaxBtn, ImgPresetBalBtn, ImgPresetLosslessBtn); }
+    private void ImgPresetBal_Click(object? sender, RoutedEventArgs e) { _state.ImageQuality = 0.80; ImgQualitySlider.Value = 0.80; UpdatePillGroup(ImgPresetBalBtn, ImgPresetMaxBtn, ImgPresetLosslessBtn); }
+    private void ImgPresetLossless_Click(object? sender, RoutedEventArgs e) { _state.ImageQuality = 0.98; ImgQualitySlider.Value = 0.98; UpdatePillGroup(ImgPresetLosslessBtn, ImgPresetMaxBtn, ImgPresetBalBtn); }
+
+    private void ImgScale25_Click(object? sender, RoutedEventArgs e) { _state.ImageResolutionScale = 0.25; ImgScaleSlider.Value = 0.25; UpdatePillGroup(ImgScale25Btn, ImgScale50Btn, ImgScale75Btn, ImgScale100Btn); }
+    private void ImgScale50_Click(object? sender, RoutedEventArgs e) { _state.ImageResolutionScale = 0.50; ImgScaleSlider.Value = 0.50; UpdatePillGroup(ImgScale50Btn, ImgScale25Btn, ImgScale75Btn, ImgScale100Btn); }
+    private void ImgScale75_Click(object? sender, RoutedEventArgs e) { _state.ImageResolutionScale = 0.75; ImgScaleSlider.Value = 0.75; UpdatePillGroup(ImgScale75Btn, ImgScale25Btn, ImgScale50Btn, ImgScale100Btn); }
+    private void ImgScale100_Click(object? sender, RoutedEventArgs e) { _state.ImageResolutionScale = 1.0; ImgScaleSlider.Value = 1.0; UpdatePillGroup(ImgScale100Btn, ImgScale25Btn, ImgScale50Btn, ImgScale75Btn); }
+
+    private void ImgFmtWebp_Click(object? sender, RoutedEventArgs e) { _state.ImageFormatPolicy = ImageFormatPolicy.ModernWebP; UpdatePillGroup(ImgFmtWebpBtn, ImgFmtJpegBtn, ImgFmtOrigBtn); }
+    private void ImgFmtJpeg_Click(object? sender, RoutedEventArgs e) { _state.ImageFormatPolicy = ImageFormatPolicy.WebJPEG; UpdatePillGroup(ImgFmtJpegBtn, ImgFmtWebpBtn, ImgFmtOrigBtn); }
+    private void ImgFmtOrig_Click(object? sender, RoutedEventArgs e) { _state.ImageFormatPolicy = ImageFormatPolicy.PreserveOriginal; UpdatePillGroup(ImgFmtOrigBtn, ImgFmtWebpBtn, ImgFmtJpegBtn); }
+
+    // ── Audio Bitrate ──
+    private void AudRate64_Click(object? sender, RoutedEventArgs e) { _state.AudioBitrate = AudioBitratePreference.K64; AudioBitrateText.Text = "64 kbps"; UpdatePillGroup(AudRate64Btn, AudRate128Btn, AudRate192Btn, AudRate256Btn, AudRate320Btn); }
+    private void AudRate128_Click(object? sender, RoutedEventArgs e) { _state.AudioBitrate = AudioBitratePreference.K128; AudioBitrateText.Text = "128 kbps"; UpdatePillGroup(AudRate128Btn, AudRate64Btn, AudRate192Btn, AudRate256Btn, AudRate320Btn); }
+    private void AudRate192_Click(object? sender, RoutedEventArgs e) { _state.AudioBitrate = AudioBitratePreference.K192; AudioBitrateText.Text = "192 kbps"; UpdatePillGroup(AudRate192Btn, AudRate64Btn, AudRate128Btn, AudRate256Btn, AudRate320Btn); }
+    private void AudRate256_Click(object? sender, RoutedEventArgs e) { _state.AudioBitrate = AudioBitratePreference.K256; AudioBitrateText.Text = "256 kbps"; UpdatePillGroup(AudRate256Btn, AudRate64Btn, AudRate128Btn, AudRate192Btn, AudRate320Btn); }
+    private void AudRate320_Click(object? sender, RoutedEventArgs e) { _state.AudioBitrate = AudioBitratePreference.K320; AudioBitrateText.Text = "320 kbps"; UpdatePillGroup(AudRate320Btn, AudRate64Btn, AudRate128Btn, AudRate192Btn, AudRate256Btn); }
+
+    // ── PDF DPI ──
+    private void PdfDpi72_Click(object? sender, RoutedEventArgs e) { _state.PdfDpi = 72; PdfDpiText.Text = "72 DPI"; UpdatePillGroup(PdfDpi72Btn, PdfDpi150Btn, PdfDpi200Btn, PdfDpi300Btn); }
+    private void PdfDpi150_Click(object? sender, RoutedEventArgs e) { _state.PdfDpi = 150; PdfDpiText.Text = "150 DPI"; UpdatePillGroup(PdfDpi150Btn, PdfDpi72Btn, PdfDpi200Btn, PdfDpi300Btn); }
+    private void PdfDpi200_Click(object? sender, RoutedEventArgs e) { _state.PdfDpi = 200; PdfDpiText.Text = "200 DPI"; UpdatePillGroup(PdfDpi200Btn, PdfDpi72Btn, PdfDpi150Btn, PdfDpi300Btn); }
+    private void PdfDpi300_Click(object? sender, RoutedEventArgs e) { _state.PdfDpi = 300; PdfDpiText.Text = "300 DPI"; UpdatePillGroup(PdfDpi300Btn, PdfDpi72Btn, PdfDpi150Btn, PdfDpi200Btn); }
+
+    // ── Helper: Pill Group Highlighter ──
+    private void UpdatePillGroup(Button activeBtn, params Button[] otherBtns)
     {
         var inactive = SolidColorBrush.Parse("#28282C");
         var activeBg = SolidColorBrush.Parse(_state.AccentColorHex);
         var inactiveFg = SolidColorBrush.Parse("#A0A0B0");
 
-        foreach (var btn in new[] { VidScale100Btn, VidScale75Btn, VidScale50Btn, VidScale25Btn })
+        activeBtn.Background = activeBg;
+        activeBtn.Foreground = Brushes.Black;
+        activeBtn.BorderBrush = Brushes.Transparent;
+        activeBtn.FontWeight = FontWeight.SemiBold;
+
+        foreach (var btn in otherBtns)
         {
             btn.Background = inactive;
             btn.Foreground = inactiveFg;
             btn.BorderBrush = SolidColorBrush.Parse("#2D2D32");
             btn.FontWeight = FontWeight.Normal;
         }
-        activeBtn.Background = activeBg;
-        activeBtn.Foreground = Brushes.Black;
-        activeBtn.BorderBrush = Brushes.Transparent;
-        activeBtn.FontWeight = FontWeight.SemiBold;
-    }
-
-    private void PdfDpi72_Click(object? sender, RoutedEventArgs e) { _state.PdfDpi = 72; UpdatePdfDpiButtons(PdfDpi72Btn); }
-    private void PdfDpi150_Click(object? sender, RoutedEventArgs e) { _state.PdfDpi = 150; UpdatePdfDpiButtons(PdfDpi150Btn); }
-    private void PdfDpi200_Click(object? sender, RoutedEventArgs e) { _state.PdfDpi = 200; UpdatePdfDpiButtons(PdfDpi200Btn); }
-    private void PdfDpi300_Click(object? sender, RoutedEventArgs e) { _state.PdfDpi = 300; UpdatePdfDpiButtons(PdfDpi300Btn); }
-
-    private void UpdatePdfDpiButtons(Button activeBtn)
-    {
-        var inactive = SolidColorBrush.Parse("#28282C");
-        var activeBg = SolidColorBrush.Parse(_state.AccentColorHex);
-        var inactiveFg = SolidColorBrush.Parse("#A0A0B0");
-
-        foreach (var btn in new[] { PdfDpi72Btn, PdfDpi150Btn, PdfDpi200Btn, PdfDpi300Btn })
-        {
-            btn.Background = inactive;
-            btn.Foreground = inactiveFg;
-            btn.BorderBrush = SolidColorBrush.Parse("#2D2D32");
-            btn.FontWeight = FontWeight.Normal;
-        }
-        activeBtn.Background = activeBg;
-        activeBtn.Foreground = Brushes.Black;
-        activeBtn.BorderBrush = Brushes.Transparent;
-        activeBtn.FontWeight = FontWeight.SemiBold;
     }
 
     // ── Drag & Drop ──
@@ -389,15 +447,37 @@ public partial class MainWindow : Window
     private void ApplyTheme(string hex, string label, Button activeBall)
     {
         _state.AccentColorHex = hex;
-        ThemeColorLabel.Text = label;
-        ThemeColorLabel.Foreground = SolidColorBrush.Parse(hex);
-        SavedStatsText.Foreground = SolidColorBrush.Parse(hex);
-        ImgQualityLabel.Foreground = SolidColorBrush.Parse(hex);
-        VidQualityLabel.Foreground = SolidColorBrush.Parse(hex);
-        LifetimeSavedText.Foreground = SolidColorBrush.Parse(hex);
-        UpdateTileStyles();
+        var accentBrush = SolidColorBrush.Parse(hex);
+        var accentColor = Color.Parse(hex);
 
-        // macOS-style: 22px default, 28px + white ring for selected
+        // Update Dynamic Resources
+        this.Resources["AccentBrush"] = accentBrush;
+        this.Resources["AccentColor"] = accentColor;
+        if (Application.Current != null)
+        {
+            Application.Current.Resources["AccentBrush"] = accentBrush;
+            Application.Current.Resources["AccentColor"] = accentColor;
+        }
+
+        // Live Header & Stats Labels
+        ThemeColorLabel.Text = label;
+        ThemeColorLabel.Foreground = accentBrush;
+        SavedStatsText.Foreground = accentBrush;
+        LifetimeSavedText.Foreground = accentBrush;
+        TargetLimitDisplay.Foreground = accentBrush;
+        VidBitratePercentText.Foreground = accentBrush;
+        VidResolutionScaleText.Foreground = accentBrush;
+        VidFramerateText.Foreground = accentBrush;
+        ImgQualityPercentText.Foreground = accentBrush;
+        ImgResolutionScaleText.Foreground = accentBrush;
+        AudioBitrateText.Foreground = accentBrush;
+        PdfDpiText.Foreground = accentBrush;
+        CustomTargetSizeLabel.Foreground = accentBrush;
+        SqueezeAllBtn.Background = accentBrush;
+
+        UpdateTileStyles();
+        RefreshAllPillHighlights();
+
         var balls = new[] { ColorBallCyan, ColorBallEmerald, ColorBallPurple, ColorBallSunset, ColorBallRose, ColorBallBlue, ColorBallCustom };
         foreach (var b in balls)
         {
@@ -408,12 +488,112 @@ public partial class MainWindow : Window
             b.CornerRadius = new CornerRadius(11);
         }
 
-        // Selected swatch: slightly larger with white ring + subtle shadow
         activeBall.BorderBrush = Brushes.White;
         activeBall.BorderThickness = new Thickness(2);
         activeBall.Width = 28;
         activeBall.Height = 28;
         activeBall.CornerRadius = new CornerRadius(14);
+    }
+
+    private void RefreshAllPillHighlights()
+    {
+        // 1. Presets
+        Button activePreset = _state.TargetSizeMode switch
+        {
+            TargetSizeMode.Off => PresetOffBtn,
+            TargetSizeMode.Discord50 => Preset50Btn,
+            TargetSizeMode.Email10 => Preset10Btn,
+            TargetSizeMode.Custom when Math.Abs(_state.CustomTargetSizeMB - 2.0) < 0.1 => Preset2Btn,
+            TargetSizeMode.Custom => PresetCustomBtn,
+            _ => Preset25Btn
+        };
+        UpdatePresetButtonStyles(activePreset);
+
+        // 2. Video Deck
+        Button activeVidQuality = _state.VideoQuality switch
+        {
+            <= 0.40 => VidPresetMaxBtn,
+            >= 0.90 => VidPresetLosslessBtn,
+            _ => VidPresetBalBtn
+        };
+        UpdatePillGroup(activeVidQuality, VidPresetMaxBtn, VidPresetBalBtn, VidPresetLosslessBtn);
+
+        Button activeVidScale = _state.VideoResolutionScale switch
+        {
+            <= 0.30 => VidScale25Btn,
+            <= 0.60 => VidScale50Btn,
+            <= 0.85 => VidScale75Btn,
+            _ => VidScale100Btn
+        };
+        UpdatePillGroup(activeVidScale, VidScale25Btn, VidScale50Btn, VidScale75Btn, VidScale100Btn);
+
+        Button activeVidFps = _state.VideoFramerate switch
+        {
+            60 => Fps60Btn,
+            50 => Fps50Btn,
+            30 => Fps30Btn,
+            25 => Fps25Btn,
+            24 => Fps24Btn,
+            15 => Fps15Btn,
+            12 => Fps12Btn,
+            _ => FpsOrigBtn
+        };
+        UpdatePillGroup(activeVidFps, FpsOrigBtn, Fps60Btn, Fps50Btn, Fps30Btn, Fps25Btn, Fps24Btn, Fps15Btn, Fps12Btn);
+
+        Button activeVidCodec = _state.VideoCodec switch
+        {
+            VideoCodecPreference.H264 => CodecH264Btn,
+            VideoCodecPreference.AnimatedGIF => CodecGifBtn,
+            _ => CodecHevcBtn
+        };
+        UpdatePillGroup(activeVidCodec, CodecHevcBtn, CodecH264Btn, CodecGifBtn);
+
+        // 3. Image Deck
+        Button activeImgQuality = _state.ImageQuality switch
+        {
+            <= 0.50 => ImgPresetMaxBtn,
+            >= 0.95 => ImgPresetLosslessBtn,
+            _ => ImgPresetBalBtn
+        };
+        UpdatePillGroup(activeImgQuality, ImgPresetMaxBtn, ImgPresetBalBtn, ImgPresetLosslessBtn);
+
+        Button activeImgScale = _state.ImageResolutionScale switch
+        {
+            <= 0.30 => ImgScale25Btn,
+            <= 0.60 => ImgScale50Btn,
+            <= 0.85 => ImgScale75Btn,
+            _ => ImgScale100Btn
+        };
+        UpdatePillGroup(activeImgScale, ImgScale25Btn, ImgScale50Btn, ImgScale75Btn, ImgScale100Btn);
+
+        Button activeImgFmt = _state.ImageFormatPolicy switch
+        {
+            ImageFormatPolicy.WebJPEG => ImgFmtJpegBtn,
+            ImageFormatPolicy.PreserveOriginal => ImgFmtOrigBtn,
+            _ => ImgFmtWebpBtn
+        };
+        UpdatePillGroup(activeImgFmt, ImgFmtWebpBtn, ImgFmtJpegBtn, ImgFmtOrigBtn);
+
+        // 4. Audio Deck
+        Button activeAudRate = _state.AudioBitrate switch
+        {
+            AudioBitratePreference.K64 => AudRate64Btn,
+            AudioBitratePreference.K128 => AudRate128Btn,
+            AudioBitratePreference.K256 => AudRate256Btn,
+            AudioBitratePreference.K320 => AudRate320Btn,
+            _ => AudRate192Btn
+        };
+        UpdatePillGroup(activeAudRate, AudRate64Btn, AudRate128Btn, AudRate192Btn, AudRate256Btn, AudRate320Btn);
+
+        // 5. PDF Deck
+        Button activePdfDpi = _state.PdfDpi switch
+        {
+            72 => PdfDpi72Btn,
+            200 => PdfDpi200Btn,
+            300 => PdfDpi300Btn,
+            _ => PdfDpi150Btn
+        };
+        UpdatePillGroup(activePdfDpi, PdfDpi72Btn, PdfDpi150Btn, PdfDpi200Btn, PdfDpi300Btn);
     }
 
     // ── Watched Folders ──
@@ -447,4 +627,5 @@ public partial class MainWindow : Window
     }
 
     private void ResetStats_Click(object? sender, RoutedEventArgs e) => _state.ResetStats();
+    private void QuitBtn_Click(object? sender, RoutedEventArgs e) => Environment.Exit(0);
 }

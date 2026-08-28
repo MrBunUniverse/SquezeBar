@@ -3,6 +3,12 @@
 SqueezeBar.app/
 *.xcodeproj
 *.xcworkspace
-xcuserdata/
+userdata/
 .swiftpm/
 *.zip
+bin/
+obj/
+dist/
+*.exe
+*.dll
+*.pdb

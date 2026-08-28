@@ -1,0 +1,75 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:models="clr-namespace:SqueezeBar.Models"
+        x:Class="SqueezeBar.Views.QueueItemSettingsDialog"
+        Title="Per-File Compression Settings"
+        Width="360" Height="420"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="#181A20"
+        ExtendClientAreaToDecorationsHint="True">
+    
+    <Grid RowDefinitions="Auto,*,Auto" Margin="16">
+        <!-- Header -->
+        <Border Grid.Row="0" Margin="0,0,0,12" Padding="0,0,0,8" BorderBrush="#262930" BorderThickness="0,0,0,1">
+            <StackPanel Spacing="4">
+                <TextBlock x:Name="FileNameText" Text="File Name" FontWeight="Bold" FontSize="13" Foreground="White" TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="FileSizeText" Text="12.4 MB • PNG" FontSize="11" Foreground="#8E9297"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Settings Form -->
+        <ScrollViewer Grid.Row="1">
+            <StackPanel Spacing="14">
+                <!-- Quality Slider -->
+                <StackPanel Spacing="4">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="Quality" FontSize="11" FontWeight="SemiBold" Foreground="#CCCCCC"/>
+                        <TextBlock Grid.Column="1" x:Name="QualityPercentText" Text="80%" FontSize="11" FontWeight="Bold" Foreground="#00D2FF"/>
+                    </Grid>
+                    <Slider x:Name="QualitySlider" Minimum="0.10" Maximum="1.0" Value="0.80" TickFrequency="0.05" IsSnapToTickEnabled="True"/>
+                </StackPanel>
+
+                <!-- Resolution Scale -->
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Resolution Scale" FontSize="11" FontWeight="SemiBold" Foreground="#CCCCCC"/>
+                    <Grid ColumnDefinitions="*,*,*,*">
+                        <Button Grid.Column="0" Content="100%" Margin="0,0,2,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="Scale100_Click"/>
+                        <Button Grid.Column="1" Content="75%" Margin="2,0,2,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="Scale75_Click"/>
+                        <Button Grid.Column="2" Content="50%" Margin="2,0,2,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="Scale50_Click"/>
+                        <Button Grid.Column="3" Content="25%" Margin="2,0,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="Scale25_Click"/>
+                    </Grid>
+                </StackPanel>
+
+                <!-- Target Limit -->
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Target Size Limit" FontSize="11" FontWeight="SemiBold" Foreground="#CCCCCC"/>
+                    <Grid ColumnDefinitions="*,*,*,*">
+                        <Button Grid.Column="0" Content="Off" Margin="0,0,2,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="LimitOff_Click"/>
+                        <Button Grid.Column="1" Content="25MB" Margin="2,0,2,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="Limit25_Click"/>
+                        <Button Grid.Column="2" Content="10MB" Margin="2,0,2,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="Limit10_Click"/>
+                        <Button Grid.Column="3" Content="50MB" Margin="2,0,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="Limit50_Click"/>
+                    </Grid>
+                </StackPanel>
+
+                <!-- Format Selection -->
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Output Format" FontSize="11" FontWeight="SemiBold" Foreground="#CCCCCC"/>
+                    <ComboBox x:Name="FormatComboBox" HorizontalAlignment="Stretch">
+                        <ComboBoxItem Content="Preserve Original" Tag="PreserveOriginal"/>
+                        <ComboBoxItem Content="Modern WebP" Tag="ModernWebP"/>
+                        <ComboBoxItem Content="Web JPEG" Tag="WebJPEG"/>
+                    </ComboBox>
+                </StackPanel>
+
+                <!-- Strip Metadata -->
+                <CheckBox x:Name="StripMetadataCheck" Content="Strip EXIF / GPS Metadata" IsChecked="True" FontSize="11" Foreground="#CCCCCC"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Footer -->
+        <Border Grid.Row="2" Margin="0,12,0,0" Padding="0,8,0,0" BorderBrush="#262930" BorderThickness="0,1,0,0">
+            <Button Content="Done" HorizontalAlignment="Right" Background="#00D2FF" Foreground="#000000" FontWeight="Bold" Padding="18,6" CornerRadius="6" Click="Done_Click"/>
+        </Border>
+    </Grid>
+</Window>

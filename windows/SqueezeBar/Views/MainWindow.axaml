@@ -1,0 +1,140 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:models="clr-namespace:SqueezeBar.Models"
+        xmlns:services="clr-namespace:SqueezeBar.Services"
+        x:Class="SqueezeBar.Views.MainWindow"
+        Title="SqueezeBar"
+        Width="380" Height="580"
+        CanResize="False"
+        ShowInTaskbar="True"
+        WindowStartupLocation="CenterScreen"
+        Background="#121316"
+        ExtendClientAreaToDecorationsHint="True">
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="14">
+        <!-- 1. Header Bar -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Border Width="22" Height="22" CornerRadius="6" Background="#00D2FF">
+                    <TextBlock Text="S" FontWeight="Bold" FontSize="13" Foreground="Black" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <TextBlock Text="SqueezeBar" FontSize="14" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+                <Border Background="#1C2028" CornerRadius="10" Padding="6,2" Margin="6,0,0,0">
+                    <TextBlock x:Name="SavedStatsText" Text="0 MB Saved" FontSize="10" FontWeight="SemiBold" Foreground="#00D2FF"/>
+                </Border>
+            </StackPanel>
+
+            <!-- Action controls -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                <Button Content="Floating Ball" FontSize="10" Background="#1C1F26" Foreground="#AAAAAA" CornerRadius="6" Padding="6,3" Click="ToggleFloatingBall_Click"/>
+                <Button Content="✕" FontSize="11" Background="Transparent" Foreground="#888888" Click="CloseButton_Click"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- 2. Main Content (Quick Squeeze & Staged Queue) -->
+        <ScrollViewer Grid.Row="1">
+            <StackPanel Spacing="12">
+                <!-- Quick Squeeze Card (Top Zone) -->
+                <Border x:Name="QuickDropBorder"
+                        Background="#181A20"
+                        BorderBrush="#00D2FF"
+                        BorderThickness="1.5"
+                        CornerRadius="10"
+                        Padding="14"
+                        DragDrop.AllowDrop="True">
+                    <StackPanel Spacing="8" HorizontalAlignment="Center">
+                        <TextBlock Text="⚡ QUICK SQUEEZE" FontSize="10" FontWeight="Bold" Foreground="#00D2FF" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Drop files here for instant compression" FontSize="11" Foreground="#CCCCCC" HorizontalAlignment="Center"/>
+                        
+                        <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" Margin="0,4,0,0">
+                            <Border Background="#20242E" CornerRadius="6" Padding="6,2">
+                                <TextBlock Text="Discord: 25MB" FontSize="9" FontWeight="SemiBold" Foreground="#00D2FF"/>
+                            </Border>
+                            <Border Background="#20242E" CornerRadius="6" Padding="6,2">
+                                <TextBlock Text="WebP • HEVC • JPG" FontSize="9" Foreground="#8E9297"/>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Custom Staged Queue Section (Lower Zone) -->
+                <Border Background="#181A20"
+                        BorderBrush="#262A33"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Padding="12"
+                        DragDrop.AllowDrop="True"
+                        x:Name="StagedQueueBorder">
+                    <StackPanel Spacing="8">
+                        <!-- Queue Header -->
+                        <Grid ColumnDefinitions="*,Auto,Auto">
+                            <TextBlock x:Name="QueueHeaderTitle" Text="Staged Queue (0)" FontSize="11" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+                            <Button Grid.Column="1" Content="Clear" FontSize="10" Background="Transparent" Foreground="#888888" Margin="0,0,6,0" Click="ClearQueue_Click"/>
+                            <Button Grid.Column="2" Content="Squeeze All" FontSize="10" FontWeight="Bold" Background="#00D2FF" Foreground="Black" CornerRadius="6" Padding="8,3" Click="SqueezeAll_Click"/>
+                        </Grid>
+
+                        <!-- Staged List Items -->
+                        <ItemsControl x:Name="StagedQueueItemsList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="models:StagedQueueItem">
+                                    <Border Background="#121316" CornerRadius="6" Padding="8,6" Margin="0,2" BorderBrush="#20232B" BorderThickness="1">
+                                        <Grid ColumnDefinitions="*,Auto,Auto">
+                                            <StackPanel Grid.Column="0" Spacing="2">
+                                                <TextBlock Text="{Binding FileName}" FontSize="11" FontWeight="SemiBold" Foreground="White" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding CustomSettingSummary}" FontSize="9.5" Foreground="#00D2FF"/>
+                                            </StackPanel>
+
+                                            <!-- Custom Button -->
+                                            <Button Grid.Column="1" Content="Custom" FontSize="9.5" FontWeight="SemiBold" Background="#20242E" Foreground="White" CornerRadius="4" Padding="6,2" Margin="4,0" Click="CustomizeItem_Click" Tag="{Binding}"/>
+                                            <!-- Delete Button -->
+                                            <Button Grid.Column="2" Content="✕" FontSize="9.5" Background="Transparent" Foreground="#666666" Padding="4,2" Click="DeleteItem_Click" Tag="{Binding Id}"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <TextBlock x:Name="EmptyQueueHint" Text="Drag files here to customize individual settings before squeezing" FontSize="10" Foreground="#555555" TextAlignment="Center" Margin="0,10"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- History / Recent Squeezes List -->
+                <Border Background="#181A20" CornerRadius="10" Padding="12" BorderBrush="#262A33" BorderThickness="1">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Recent Squeezes" FontSize="11" FontWeight="Bold" Foreground="White"/>
+                        
+                        <ItemsControl x:Name="HistoryItemsList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="models:CompressionResult">
+                                    <Border Background="#121316" CornerRadius="6" Padding="8,6" Margin="0,2">
+                                        <Grid ColumnDefinitions="*,Auto,Auto">
+                                            <StackPanel Grid.Column="0" Spacing="2">
+                                                <TextBlock Text="{Binding FileName}" FontSize="11" FontWeight="Medium" Foreground="White" TextTrimming="CharacterEllipsis"/>
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <TextBlock Text="{Binding FormattedOriginalSize}" FontSize="9" Foreground="#666666"/>
+                                                    <TextBlock Text="→" FontSize="9" Foreground="#666666"/>
+                                                    <TextBlock Text="{Binding FormattedCompressedSize}" FontSize="9" FontWeight="Bold" Foreground="#00D2FF"/>
+                                                </StackPanel>
+                                            </StackPanel>
+
+                                            <Border Grid.Column="1" Background="#162E2A" CornerRadius="4" Padding="4,2" Margin="4,0">
+                                                <TextBlock Text="{Binding PercentSaved, StringFormat='-{0:F0}%'}" FontSize="9" FontWeight="Bold" Foreground="#00E676"/>
+                                            </Border>
+
+                                            <Button Grid.Column="2" Content="📁" FontSize="10" Background="Transparent" Foreground="#888888" Click="OpenFolder_Click" Tag="{Binding OutputPath}"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- 3. Status Bar -->
+        <Border Grid.Row="2" Margin="0,10,0,0" Padding="0,6,0,0" BorderBrush="#262930" BorderThickness="0,1,0,0">
+            <TextBlock x:Name="StatusText" Text="Ready • Drop anywhere to squeeze" FontSize="10" Foreground="#666666" HorizontalAlignment="Center"/>
+        </Border>
+    </Grid>
+</Window>

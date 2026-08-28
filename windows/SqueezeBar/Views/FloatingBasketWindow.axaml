@@ -1,0 +1,30 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="SqueezeBar.Views.FloatingBasketWindow"
+        Title="Squeeze Drop Basket"
+        Width="70" Height="70"
+        CanResize="False"
+        Topmost="True"
+        ShowInTaskbar="False"
+        SystemDecorations="None"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        DragDrop.AllowDrop="True">
+
+    <Border x:Name="BasketCircle"
+            Width="64" Height="64"
+            CornerRadius="32"
+            Background="#E616181D"
+            BorderBrush="#00D2FF"
+            BorderThickness="2"
+            BoxShadow="0 4 16 #80000000"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+        <Grid>
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="2">
+                <TextBlock Text="⚡" FontSize="16" HorizontalAlignment="Center"/>
+                <TextBlock Text="DROP" FontSize="8" FontWeight="Bold" Foreground="#00D2FF" HorizontalAlignment="Center"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

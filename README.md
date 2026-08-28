@@ -32,9 +32,7 @@ cd macOS
 ## Windows Version (🚧 In Active Development)
 
 > [!NOTE]
-> **Status:** The Windows version is currently under active development and is **not yet released**. Pre-built binaries are currently available for macOS only.
-
-The upcoming Windows edition is being designed for Windows 11 with Fluent Design (Mica/Acrylic translucent materials), System Tray integration, and multi-vendor GPU hardware acceleration (Nvidia NVENC, Intel QuickSync, AMD AMF). See [`windows/README.md`](windows/README.md) for architectural details and progress.
+> The Windows version is currently in active development and will be available in an upcoming release. Pre-built binaries are currently available for macOS.
 
 ---
 

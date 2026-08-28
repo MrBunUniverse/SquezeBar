@@ -3,7 +3,7 @@ set -e
 
 # ==============================================================================
 # SqueezeBar DMG Installer Builder
-# Creates a professional drag-and-drop macOS DMG installer
+# Creates a professional drag-and-drop macOS DMG installer with custom minimalist background
 # ==============================================================================
 
 APP_NAME="SqueezeBar"
@@ -18,8 +18,9 @@ echo "=========================================="
 echo " Building ${APP_NAME} DMG Installer"
 echo "=========================================="
 
-# 1. Ensure the app bundle exists and is fresh
+# 1. Ensure the app bundle and background exist and are fresh
 ./scripts/bundle_app.sh
+swift ./scripts/generate_dmg_background.swift "Resources/dmg_background.png"
 
 if [ ! -d "${APP_NAME}.app" ]; then
     echo "Error: ${APP_NAME}.app not found!"
@@ -30,10 +31,12 @@ fi
 rm -rf "${BUILD_DIR}" "${DMG_STAGING}" "${OUTPUT_DMG}" "${BUILD_DIR}_rw.dmg"
 mkdir -p "${BUILD_DIR}"
 mkdir -p "${DMG_STAGING}"
+mkdir -p "${DMG_STAGING}/.images"
 
-echo "[1/4] Staging app and Applications symlink..."
+echo "[1/4] Staging app, background, and Applications symlink..."
 cp -R "${APP_NAME}.app" "${DMG_STAGING}/"
 ln -s /Applications "${DMG_STAGING}/Applications"
+cp "Resources/dmg_background.png" "${DMG_STAGING}/.images/background.png"
 
 # 3. Create a temporary read-write DMG
 echo "[2/4] Creating temporary disk image..."
@@ -46,14 +49,14 @@ hdiutil create -srcfolder "${DMG_STAGING}" \
     "${BUILD_DIR}_rw.dmg"
 
 # 4. Mount the RW DMG to configure Finder view
-echo "[3/4] Mounting and styling Finder window layout..."
+echo "[3/4] Mounting and styling Finder window layout with custom background..."
 DEVICE=$(hdiutil attach -readwrite -noverify -noautoopen "${BUILD_DIR}_rw.dmg" | egrep '^/dev/' | sed 1q | awk '{print $1}')
 MOUNT_DIR="/Volumes/${VOL_NAME}"
 
 # Wait for volume to appear
 sleep 2
 
-# Run AppleScript to arrange icons nicely
+# Run AppleScript to set custom background image and arrange icons nicely
 osascript <<EOF || true
 tell application "Finder"
     tell disk "${VOL_NAME}"
@@ -63,11 +66,18 @@ tell application "Finder"
         set statusbar visible of container window to false
         set the bounds of container window to {400, 200, 940, 560}
         
-        set theViewOptions to the icon view options of container window
-        set icon size of theViewOptions to 110
-        set text size of theViewOptions to 12
-        set label position of theViewOptions to bottom
-        set arrangement of theViewOptions to not arranged
+        set theOptions to icon view options of container window
+        tell theOptions
+            set icon size to 110
+            set text size to 12
+            set label position to bottom
+            set arrangement to not arranged
+        end tell
+        
+        try
+            set bgFile to file "background.png" of folder ".images" of disk "${VOL_NAME}" as alias
+            set background picture of theOptions to bgFile
+        end try
         
         -- Position App icon on the left, Applications folder on the right
         set position of item "${APP_NAME}.app" of container window to {140, 180}

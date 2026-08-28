@@ -21,14 +21,15 @@ public final class FloatingDropWindowController: NSObject, NSWindowDelegate {
     }
     
     public func showFloatingWindow() {
+        let scale = AppState.shared.uiScale
         if floatingPanel == nil {
             let panel = NSPanel(
-                contentRect: NSRect(x: 0, y: 0, width: 380, height: 530),
+                contentRect: NSRect(x: 0, y: 0, width: scale.baseWidth, height: scale.baseHeight),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                 backing: .buffered,
                 defer: false
             )
-            panel.title = "SqueezeBar Pro"
+            panel.title = "SqueezeBar"
             panel.titlebarAppearsTransparent = true
             panel.titleVisibility = .hidden
             panel.isMovableByWindowBackground = true
@@ -40,7 +41,7 @@ public final class FloatingDropWindowController: NSObject, NSWindowDelegate {
             panel.hasShadow = true
             panel.backgroundColor = .clear
             panel.isOpaque = false
-            panel.minSize = NSSize(width: 440, height: 560)
+            panel.minSize = NSSize(width: scale.baseWidth - 20, height: scale.baseHeight - 40)
             panel.delegate = self
             
             let hostingView = NSHostingView(
@@ -57,6 +58,20 @@ public final class FloatingDropWindowController: NSObject, NSWindowDelegate {
         floatingPanel?.hidesOnDeactivate = false
         floatingPanel?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+    
+    public func updateWindowDimensionsForScale(_ scale: UIScaleOption) {
+        guard let panel = floatingPanel else { return }
+        panel.minSize = NSSize(width: scale.baseWidth - 20, height: scale.baseHeight - 40)
+        var frame = panel.frame
+        let diff = scale.baseHeight - frame.size.height
+        frame.origin.y -= diff
+        frame.size = NSSize(width: scale.baseWidth, height: scale.baseHeight)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.25
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            panel.animator().setFrame(frame, display: true)
+        }
     }
     
     public func updatePinState(pinned: Bool) {

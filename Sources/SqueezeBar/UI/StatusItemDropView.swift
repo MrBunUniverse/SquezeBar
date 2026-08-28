@@ -55,22 +55,32 @@ public final class StatusItemDropView: NSView {
         ])
         
         // Observe AppState
-        AppState.shared.$isProcessing
-            .combineLatest(AppState.shared.$overallProgress, AppState.shared.$showSuccessBadge)
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] isProc, prog, isSuccess in
-                guard let self = self else { return }
-                if self.isHoveringDrag { return }
-                
-                if isSuccess {
-                    self.mode = .success
-                } else if isProc {
-                    self.mode = .processing(progress: prog)
-                } else {
-                    self.mode = .idle
-                }
+        Publishers.CombineLatest4(
+            AppState.shared.$isProcessing,
+            AppState.shared.$overallProgress,
+            AppState.shared.$showSuccessBadge,
+            AppState.shared.$menuBarDisplayStyle
+        )
+        .combineLatest(AppState.shared.$totalBytesSaved, AppState.shared.$isProUser)
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] baseTuple, totalSaved, isPro in
+            let (isProc, prog, isSuccess, _) = baseTuple
+            guard let self = self else { return }
+            
+            // Dynamically adjust item length based on display style when idle
+            if !self.isHoveringDrag {
+                self.controller?.updateStatusItemLength()
             }
-            .store(in: &cancellables)
+            
+            if isSuccess {
+                self.mode = .success
+            } else if isProc {
+                self.mode = .processing(progress: prog)
+            } else {
+                self.mode = .idle
+            }
+        }
+        .store(in: &cancellables)
     }
     
     private var isHoveringDrag: Bool = false
@@ -100,7 +110,6 @@ public final class StatusItemDropView: NSView {
         
         isHoveringDrag = true
         mode = .dragHover
-        controller?.animateExpansion(expanded: true)
         return .copy
     }
     
@@ -109,20 +118,19 @@ public final class StatusItemDropView: NSView {
         if isValid && !isHoveringDrag {
             isHoveringDrag = true
             mode = .dragHover
-            controller?.animateExpansion(expanded: true)
         }
         return isValid ? .copy : []
     }
     
     public override func draggingExited(_ sender: NSDraggingInfo?) {
         isHoveringDrag = false
-        controller?.animateExpansion(expanded: false)
+        controller?.updateStatusItemLength()
         updateCurrentMode()
     }
     
     public override func draggingEnded(_ sender: NSDraggingInfo) {
         isHoveringDrag = false
-        controller?.animateExpansion(expanded: false)
+        controller?.updateStatusItemLength()
         updateCurrentMode()
     }
     
@@ -131,7 +139,7 @@ public final class StatusItemDropView: NSView {
         guard !urls.isEmpty else { return false }
         
         isHoveringDrag = false
-        controller?.animateExpansion(expanded: false)
+        controller?.updateStatusItemLength()
         
         Task {
             await MediaCompressionEngine.shared.processDroppedURLs(urls)
@@ -215,13 +223,88 @@ public final class StatusItemDropView: NSView {
         }
     }
     
-    // MARK: - Render: Idle Icon
+    // MARK: - Render: Idle Icon & Supporter Menu Bar Styles
     private func drawIdleState(in rect: NSRect, context: CGContext) {
         let isDark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         let iconColor: NSColor = isHighlighted ? .systemBlue : (isDark ? .white : .white)
-        let iconSize: CGFloat = 17.0
+        let state = AppState.shared
         
-        let clampImage = NSImage.squeezeClampImage(size: iconSize, color: iconColor)
+        let style = state.menuBarDisplayStyle
+        
+        switch style {
+        case .iconOnly:
+            let iconSize: CGFloat = 17.0
+            let clampImage = NSImage.squeezeClampImage(size: iconSize, color: iconColor)
+            let iconRect = NSRect(
+                x: (rect.width - iconSize) / 2,
+                y: (rect.height - iconSize) / 2,
+                width: iconSize,
+                height: iconSize
+            )
+            clampImage.draw(in: iconRect)
+            
+        case .minimalMonochrome:
+            // Sleek minimalist dot / diamond clamp
+            let dotSize: CGFloat = 7.0
+            let dotRect = NSRect(
+                x: (rect.width - dotSize) / 2,
+                y: (rect.height - dotSize) / 2,
+                width: dotSize,
+                height: dotSize
+            )
+            let dotPath = NSBezierPath(ovalIn: dotRect)
+            (isHighlighted ? NSColor.systemBlue : (isDark ? NSColor.white : NSColor.black)).setFill()
+            dotPath.fill()
+            
+        case .liveSavings:
+            // Squeeze clamp icon on left + crisp formatted saved MB on right
+            let iconSize: CGFloat = 14.0
+            let clampImage = NSImage.squeezeClampImage(size: iconSize, color: iconColor)
+            let iconRect = NSRect(
+                x: 6,
+                y: (rect.height - iconSize) / 2,
+                width: iconSize,
+                height: iconSize
+            )
+            clampImage.draw(in: iconRect)
+            
+            let savedStr = ByteCountFormatter.string(fromByteCount: state.totalBytesSaved, countStyle: .file)
+            let textFont = NSFont.monospacedDigitSystemFont(ofSize: 10.5, weight: .semibold)
+            let textColor = isHighlighted ? NSColor.systemBlue : (isDark ? NSColor.white.withAlphaComponent(0.92) : NSColor.black.withAlphaComponent(0.85))
+            
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: textFont,
+                .foregroundColor: textColor
+            ]
+            let textSize = (savedStr as NSString).size(withAttributes: attrs)
+            let textRect = NSRect(
+                x: iconRect.maxX + 5,
+                y: (rect.height - textSize.height) / 2 + 0.5,
+                width: textSize.width,
+                height: textSize.height
+            )
+            (savedStr as NSString).draw(in: textRect, withAttributes: attrs)
+        }
+    }
+    
+    // MARK: - Render: In-Place Drop Hover Indicator
+    private func drawDragHoverPill(in rect: NSRect, context: CGContext) {
+        let pillInset: CGFloat = 2.5
+        let pillRect = rect.insetBy(dx: pillInset, dy: pillInset)
+        let pillPath = NSBezierPath(roundedRect: pillRect, xRadius: min(6.0, pillRect.height / 2), yRadius: min(6.0, pillRect.height / 2))
+        
+        // Background fill with vibrant glass accent tint
+        NSColor.systemBlue.withAlphaComponent(0.35).setFill()
+        pillPath.fill()
+        
+        // Stroke outline with glowing blue border
+        NSColor.systemBlue.setStroke()
+        pillPath.lineWidth = 1.5
+        pillPath.stroke()
+        
+        // Icon rendering
+        let iconSize: CGFloat = 16.0
+        let clampImage = NSImage.squeezeClampImage(size: iconSize, color: .white)
         let iconRect = NSRect(
             x: (rect.width - iconSize) / 2,
             y: (rect.height - iconSize) / 2,
@@ -229,51 +312,6 @@ public final class StatusItemDropView: NSView {
             height: iconSize
         )
         clampImage.draw(in: iconRect)
-    }
-    
-    // MARK: - Render: Expanded Drop Pill
-    private func drawDragHoverPill(in rect: NSRect, context: CGContext) {
-        let pillInset: CGFloat = 3.0
-        let pillRect = rect.insetBy(dx: pillInset, dy: pillInset)
-        let pillPath = NSBezierPath(roundedRect: pillRect, xRadius: pillRect.height / 2, yRadius: pillRect.height / 2)
-        
-        // Background fill with vibrant glass tint
-        NSColor.systemBlue.withAlphaComponent(0.35).setFill()
-        pillPath.fill()
-        
-        // Stroke outline with glowing blue
-        NSColor.systemBlue.setStroke()
-        pillPath.lineWidth = 1.5
-        pillPath.stroke()
-        
-        // Icon on the left
-        let iconConfig = NSImage.SymbolConfiguration(pointSize: 12, weight: .bold)
-            .applying(NSImage.SymbolConfiguration(paletteColors: [.white]))
-        if let icon = NSImage(systemSymbolName: "arrow.down.to.line.compact", accessibilityDescription: nil)?.withSymbolConfiguration(iconConfig) {
-            let iconRect = NSRect(
-                x: pillRect.minX + 8,
-                y: (rect.height - 14) / 2,
-                width: 14,
-                height: 14
-            )
-            icon.draw(in: iconRect)
-        }
-        
-        // Label "Drop to Compress"
-        let text = "Drop to Compress"
-        let font = NSFont.systemFont(ofSize: 11, weight: .bold)
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .foregroundColor: NSColor.white
-        ]
-        let textSize = (text as NSString).size(withAttributes: attrs)
-        let textRect = NSRect(
-            x: pillRect.minX + 26,
-            y: (rect.height - textSize.height) / 2,
-            width: textSize.width,
-            height: textSize.height
-        )
-        (text as NSString).draw(in: textRect, withAttributes: attrs)
     }
     
     // MARK: - Render: Circular Progress Indicator

@@ -5,3 +5,4 @@ SqueezeBar.app/
 *.xcworkspace
 xcuserdata/
 .swiftpm/
+*.zip

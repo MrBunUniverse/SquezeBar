@@ -7,6 +7,8 @@ public struct BeforeAfterInspectorView: View {
     public let result: CompressionResult
     public let onClose: () -> Void
     
+    @ObservedObject private var state = AppState.shared
+    
     @State private var splitOffset: CGFloat = 0.5 // 0.0 ... 1.0
     @State private var originalImage: NSImage?
     @State private var compressedImage: NSImage?
@@ -15,6 +17,9 @@ public struct BeforeAfterInspectorView: View {
     
     // Synchronized Video Playback Engine
     @StateObject private var videoEngine = SynchronizedVideoEngine()
+    
+    // Dedicated Audio Playback Engine
+    @StateObject private var audioEngine = SynchronizedAudioEngine()
     
     // Zoom & Pan State (Shared and Synchronized across modes)
     @State private var zoomScale: CGFloat = 1.0
@@ -40,11 +45,18 @@ public struct BeforeAfterInspectorView: View {
             Divider()
                 .opacity(0.25)
             
-            // Comparison Canvas (Captures Pan & Zoom locally, NOT dragging window)
-            comparisonCanvas
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.black.opacity(0.6))
-                .clipped()
+            // Main Content: Audio Player vs Visual Comparison Canvas
+            if result.mediaType == .audio {
+                audioPlaybackView
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.black.opacity(0.65))
+            } else {
+                // Comparison Canvas (Captures Pan & Zoom locally, NOT dragging window)
+                comparisonCanvas
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.black.opacity(0.6))
+                    .clipped()
+            }
             
             // Video Playback Controls Bar (if media is video)
             if result.mediaType == .video && videoEngine.isLoaded {
@@ -66,6 +78,7 @@ public struct BeforeAfterInspectorView: View {
         }
         .onDisappear {
             videoEngine.cleanup()
+            audioEngine.cleanup()
         }
     }
     
@@ -86,23 +99,23 @@ public struct BeforeAfterInspectorView: View {
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(result.fileName)
-                    .font(.system(size: 12, weight: .bold, design: .serif))
+                    .font(.system(size: 12, weight: .bold))
                     .lineLimit(1)
                 
                 HStack(spacing: 6) {
                     Text(result.formattedOriginalSize)
-                        .font(.system(size: 10, design: .serif))
+                        .font(.system(size: 10))
                         .foregroundColor(.secondary)
                         .strikethrough()
                     Image(systemName: "arrow.right")
                         .font(.system(size: 8))
                         .foregroundColor(.secondary)
                     Text(result.formattedCompressedSize)
-                        .font(.system(size: 10, weight: .semibold, design: .serif))
+                        .font(.system(size: 10, weight: .semibold))
                         .foregroundColor(.primary)
                     
                     Text("Saved \(result.formattedSaved)")
-                        .font(.system(size: 9, weight: .semibold, design: .serif))
+                        .font(.system(size: 9, weight: .semibold))
                         .foregroundColor(.green)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
@@ -112,85 +125,130 @@ public struct BeforeAfterInspectorView: View {
             
             Spacer()
             
-            // Zoom Controls Indicator
-            HStack(spacing: 6) {
-                Button {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                        zoomScale = max(1.0, zoomScale - 0.5)
-                        if zoomScale <= 1.0 { panOffset = .zero; activeDragOffset = .zero }
-                    }
-                } label: {
-                    Image(systemName: "minus.magnifyingglass")
-                        .font(.system(size: 11))
-                        .padding(4)
-                }
-                .buttonStyle(.plain)
-                .disabled(zoomScale <= 1.0)
-                
-                Text(String(format: "%.0f%%", zoomScale * 100))
-                    .font(.system(size: 10, weight: .medium, design: .serif))
-                    .frame(width: 38)
-                    .onTapGesture(count: 2) {
-                        resetZoom()
-                    }
-                
-                Button {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                        zoomScale = min(5.0, zoomScale + 0.5)
-                    }
-                } label: {
-                    Image(systemName: "plus.magnifyingglass")
-                        .font(.system(size: 11))
-                        .padding(4)
-                }
-                .buttonStyle(.plain)
-                .disabled(zoomScale >= 5.0)
-                
-                if zoomScale > 1.0 {
-                    Button {
-                        resetZoom()
-                    } label: {
-                        Text("Reset")
-                            .font(.system(size: 9, weight: .medium, design: .serif))
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.white.opacity(0.12)))
-                    }
-                    .buttonStyle(.plain)
-                    .transition(.opacity)
-                }
-            }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
-            .background(Capsule().fill(Color.white.opacity(0.06)))
-            
-            // Mode Selector (Pill Glider)
-            HStack(spacing: 3) {
-                ForEach(InspectorMode.allCases, id: \.self) { mode in
+            if result.mediaType == .audio {
+                // Audio A/B Source Glider (Instant Switcher)
+                HStack(spacing: 3) {
                     Button {
                         withAnimation(.spring(response: 0.28, dampingFraction: 0.76)) {
-                            inspectorMode = mode
+                            audioEngine.setSource(.original)
                         }
                     } label: {
-                        Text(mode.rawValue)
-                            .font(.system(size: 10, weight: inspectorMode == mode ? .semibold : .medium, design: .serif))
-                            .foregroundColor(inspectorMode == mode ? .white : .secondary)
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 4)
+                        Text("Original (Before)")
+                            .font(.system(size: 10, weight: audioEngine.activeSource == .original ? .semibold : .medium))
+                            .foregroundColor(audioEngine.activeSource == .original ? .white : .secondary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4.5)
                             .background(
                                 Capsule()
-                                    .fill(inspectorMode == mode ? Color.white.opacity(0.18) : Color.clear)
+                                    .fill(audioEngine.activeSource == .original ? Color.white.opacity(0.18) : Color.clear)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Button {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.76)) {
+                            audioEngine.setSource(.compressed)
+                        }
+                    } label: {
+                        Text("Squeezed (After)")
+                            .font(.system(size: 10, weight: audioEngine.activeSource == .compressed ? .semibold : .medium))
+                            .foregroundColor(audioEngine.activeSource == .compressed ? .white : .secondary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4.5)
+                            .background(
+                                Capsule()
+                                    .fill(audioEngine.activeSource == .compressed ? state.accentColor.opacity(0.35) : Color.clear)
                             )
                     }
                     .buttonStyle(.plain)
                 }
+                .padding(2.5)
+                .background(
+                    Capsule()
+                        .fill(Color.black.opacity(0.25))
+                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5))
+                )
+            } else {
+                // Zoom Controls Indicator
+                HStack(spacing: 6) {
+                    Button {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            zoomScale = max(1.0, zoomScale - 0.5)
+                            if zoomScale <= 1.0 { panOffset = .zero; activeDragOffset = .zero }
+                        }
+                    } label: {
+                        Image(systemName: "minus.magnifyingglass")
+                            .font(.system(size: 11))
+                            .padding(4)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(zoomScale <= 1.0)
+                    
+                    Text(String(format: "%.0f%%", zoomScale * 100))
+                        .font(.system(size: 10, weight: .medium))
+                        .frame(width: 38)
+                        .onTapGesture(count: 2) {
+                            resetZoom()
+                        }
+                    
+                    Button {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            zoomScale = min(5.0, zoomScale + 0.5)
+                        }
+                    } label: {
+                        Image(systemName: "plus.magnifyingglass")
+                            .font(.system(size: 11))
+                            .padding(4)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(zoomScale >= 5.0)
+                    
+                    if zoomScale > 1.0 {
+                        Button {
+                            resetZoom()
+                        } label: {
+                            Text("Reset")
+                                .font(.system(size: 9, weight: .medium))
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(Color.white.opacity(0.12)))
+                        }
+                        .buttonStyle(.plain)
+                        .transition(.opacity)
+                    }
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(Capsule().fill(Color.white.opacity(0.06)))
+                
+                // Mode Selector (Pill Glider)
+                HStack(spacing: 3) {
+                    ForEach(InspectorMode.allCases, id: \.self) { mode in
+                        Button {
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.76)) {
+                                inspectorMode = mode
+                            }
+                        } label: {
+                            Text(mode.rawValue)
+                                .font(.system(size: 10, weight: inspectorMode == mode ? .semibold : .medium))
+                                .foregroundColor(inspectorMode == mode ? .white : .secondary)
+                                .padding(.horizontal, 9)
+                                .padding(.vertical, 4)
+                                .background(
+                                    Capsule()
+                                        .fill(inspectorMode == mode ? Color.white.opacity(0.18) : Color.clear)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(2.5)
+                .background(
+                    Capsule()
+                        .fill(Color.black.opacity(0.25))
+                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5))
+                )
             }
-            .padding(2.5)
-            .background(
-                Capsule()
-                    .fill(Color.black.opacity(0.25))
-                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5))
-            )
         }
         .padding(.leading, 8)
         .padding(.trailing, 16)
@@ -204,6 +262,183 @@ public struct BeforeAfterInspectorView: View {
             panOffset = .zero
             activeDragOffset = .zero
         }
+    }
+    
+    // MARK: - Dedicated Simple Audio Playback View
+    @ViewBuilder
+    private var audioPlaybackView: some View {
+        VStack(spacing: 28) {
+            Spacer()
+            
+            // Hero Vinyl/Waveform Luminous Artwork Orb
+            ZStack {
+                // Outer Ambient Glow themed to accent color
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [state.accentColor.opacity(audioEngine.isPlaying ? 0.35 : 0.12), Color.clear],
+                            center: .center,
+                            startRadius: 10,
+                            endRadius: 130
+                        )
+                    )
+                    .frame(width: 260, height: 260)
+                    .scaleEffect(audioEngine.isPlaying ? 1.08 : 1.0)
+                    .animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: audioEngine.isPlaying)
+                
+                // Frosted Glass Circle with Specular Border
+                Circle()
+                    .fill(Color.white.opacity(0.06))
+                    .frame(width: 150, height: 150)
+                    .overlay(
+                        Circle()
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [Color.white.opacity(0.35), state.accentColor.opacity(0.3)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1.0
+                            )
+                    )
+                    .shadow(color: state.accentColor.opacity(0.35), radius: 18, y: 6)
+                
+                // Centered Waveform Icon and Badge
+                VStack(spacing: 8) {
+                    Image(systemName: "waveform")
+                        .font(.system(size: 46, weight: .semibold))
+                        .foregroundColor(audioEngine.activeSource == .original ? .white.opacity(0.8) : state.accentColor)
+                        .scaleEffect(audioEngine.isPlaying ? 1.06 : 1.0)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: audioEngine.isPlaying)
+                    
+                    Text(audioEngine.activeSource == .original ? "ORIGINAL LOSSLESS" : "SQUEEZED AUDIO")
+                        .font(.system(size: 9, weight: .bold, design: .serif))
+                        .foregroundColor(audioEngine.activeSource == .original ? .secondary : state.accentColor)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2.5)
+                        .background(Capsule().fill(audioEngine.activeSource == .original ? Color.white.opacity(0.08) : state.accentColor.opacity(0.18)))
+                }
+            }
+            
+            // Track Info & Telemetry
+            VStack(spacing: 10) {
+                Text(result.fileName)
+                    .font(.system(size: 16, weight: .bold, design: .serif))
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+                
+                HStack(spacing: 14) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "music.note")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                        Text(result.originalURL.pathExtension.uppercased() + " → " + result.outputURL.pathExtension.uppercased())
+                            .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Text("•")
+                        .foregroundColor(.secondary.opacity(0.4))
+                    
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.down.circle.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(.green)
+                        Text("Saved \(result.formattedSaved) (-\(Int(result.percentSaved))%)")
+                            .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                            .foregroundColor(.green)
+                    }
+                }
+            }
+            
+            // Audio Player Controls & Scrubbing Bar
+            VStack(spacing: 12) {
+                // Interactive Scrubber Bar
+                GeometryReader { scrubberGeo in
+                    let trackWidth = scrubberGeo.size.width
+                    let progress = audioEngine.durationSeconds > 0 ? (audioEngine.currentTimeSeconds / audioEngine.durationSeconds) : 0.0
+                    
+                    ZStack(alignment: .leading) {
+                        // Background Track
+                        Capsule()
+                            .fill(Color.white.opacity(0.12))
+                            .frame(height: 6)
+                        
+                        // Progress Fill
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [state.accentColor, state.accentColor.opacity(0.75)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: max(6, trackWidth * CGFloat(min(1.0, max(0.0, progress)))), height: 6)
+                    }
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { gesture in
+                                let pct = max(0.0, min(1.0, gesture.location.x / trackWidth))
+                                audioEngine.seek(to: audioEngine.durationSeconds * pct)
+                            }
+                    )
+                }
+                .frame(height: 12)
+                
+                // Elapsed & Remaining Time
+                HStack {
+                    Text(audioEngine.formattedCurrentTime)
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Text(audioEngine.formattedRemainingTime)
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundColor(.secondary)
+                }
+                
+                // Transport Buttons
+                HStack(spacing: 28) {
+                    // Rewind 15s
+                    Button {
+                        audioEngine.seek(to: max(0, audioEngine.currentTimeSeconds - 15))
+                    } label: {
+                        Image(systemName: "gobackward.15")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.primary.opacity(0.85))
+                    }
+                    .buttonStyle(.plain)
+                    
+                    // Big Play / Pause Button
+                    Button {
+                        audioEngine.togglePlayPause()
+                    } label: {
+                        Image(systemName: audioEngine.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                            .font(.system(size: 48, weight: .regular))
+                            .foregroundColor(state.accentColor)
+                            .shadow(color: state.accentColor.opacity(0.4), radius: 8, y: 2)
+                    }
+                    .buttonStyle(.plain)
+                    
+                    // Forward 15s
+                    Button {
+                        audioEngine.seek(to: min(audioEngine.durationSeconds, audioEngine.currentTimeSeconds + 15))
+                    } label: {
+                        Image(systemName: "goforward.15")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.primary.opacity(0.85))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, 4)
+            }
+            .frame(maxWidth: 440)
+            
+            Spacer()
+        }
+        .padding(24)
     }
     
     // MARK: - Comparison Canvas
@@ -289,7 +524,7 @@ public struct BeforeAfterInspectorView: View {
                 .position(x: lineX, y: height / 2)
                 .shadow(color: .black.opacity(0.6), radius: 3)
             
-            // Center Pill Handle
+            // Center Pill Handle with Magnetic Snap and Haptic Alignment
             Circle()
                 .fill(Color.white)
                 .frame(width: 26, height: 26)
@@ -303,17 +538,31 @@ public struct BeforeAfterInspectorView: View {
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .onChanged { value in
-                            let newOffset = max(0.02, min(0.98, value.location.x / width))
-                            splitOffset = newOffset
+                            let raw = max(0.02, min(0.98, value.location.x / width))
+                            // Magnetic center snap within +-0.035
+                            if abs(raw - 0.5) < 0.035 {
+                                if splitOffset != 0.5 {
+                                    NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+                                }
+                                splitOffset = 0.5
+                            } else {
+                                splitOffset = raw
+                            }
                         }
                 )
+                .onTapGesture(count: 2) {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                        splitOffset = 0.5
+                    }
+                    NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+                }
             
             // Labels
             VStack {
                 Spacer()
                 HStack {
                     Text("ORIGINAL")
-                        .font(.system(size: 9, weight: .bold, design: .serif))
+                        .font(.system(size: 9, weight: .bold))
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
                         .background(Capsule().fill(Color.black.opacity(0.65)))
@@ -323,15 +572,72 @@ public struct BeforeAfterInspectorView: View {
                     Spacer()
                     
                     Text("OPTIMIZED")
-                        .font(.system(size: 9, weight: .bold, design: .serif))
+                        .font(.system(size: 9, weight: .bold))
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
-                        .background(Capsule().fill(Color.blue.opacity(0.85)))
+                        .background(Capsule().fill(state.accentColor.opacity(0.85)))
                         .foregroundColor(.white)
                         .padding(12)
                 }
             }
         }
+        .background(
+            // Power-User Keyboard Shortcuts
+            Group {
+                Button("") {
+                    if result.mediaType == .audio {
+                        audioEngine.togglePlayPause()
+                    } else if result.mediaType == .video {
+                        videoEngine.togglePlayPause()
+                    }
+                }
+                .keyboardShortcut(.space, modifiers: [])
+                
+                Button("") {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                        if result.mediaType == .audio {
+                            audioEngine.setSource(audioEngine.activeSource == .original ? .compressed : .original)
+                        } else {
+                            inspectorMode = (inspectorMode == .split ? .sideBySide : .split)
+                        }
+                    }
+                }
+                .keyboardShortcut(.tab, modifiers: [])
+                
+                Button("") {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                        splitOffset = 0.5
+                        resetZoom()
+                    }
+                    NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+                }
+                .keyboardShortcut("c", modifiers: [])
+                
+                Button("") {
+                    if result.mediaType == .audio {
+                        audioEngine.seek(to: max(0, audioEngine.currentTimeSeconds - 5))
+                    } else if result.mediaType == .video {
+                        videoEngine.seek(to: max(0, videoEngine.currentTimeSeconds - 5))
+                    } else {
+                        withAnimation { splitOffset = max(0.05, splitOffset - 0.05) }
+                    }
+                }
+                .keyboardShortcut(.leftArrow, modifiers: [])
+                
+                Button("") {
+                    if result.mediaType == .audio {
+                        audioEngine.seek(to: min(audioEngine.durationSeconds, audioEngine.currentTimeSeconds + 5))
+                    } else if result.mediaType == .video {
+                        videoEngine.seek(to: min(videoEngine.durationSeconds, videoEngine.currentTimeSeconds + 5))
+                    } else {
+                        withAnimation { splitOffset = min(0.95, splitOffset + 0.05) }
+                    }
+                }
+                .keyboardShortcut(.rightArrow, modifiers: [])
+            }
+            .opacity(0)
+            .allowsHitTesting(false)
+        )
     }
     
     // MARK: - True Synchronized Dual-Viewport Side By Side (Split-Screen)
@@ -357,7 +663,7 @@ public struct BeforeAfterInspectorView: View {
                 }
                 
                 Text("ORIGINAL")
-                    .font(.system(size: 9, weight: .bold, design: .serif))
+                    .font(.system(size: 9, weight: .bold))
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
                     .background(Capsule().fill(Color.black.opacity(0.75)))
@@ -386,7 +692,7 @@ public struct BeforeAfterInspectorView: View {
                 }
                 
                 Text("OPTIMIZED")
-                    .font(.system(size: 9, weight: .bold, design: .serif))
+                    .font(.system(size: 9, weight: .bold))
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
                     .background(Capsule().fill(Color.blue.opacity(0.85)))
@@ -416,7 +722,7 @@ public struct BeforeAfterInspectorView: View {
             .keyboardShortcut(.space, modifiers: [])
             
             Text(videoEngine.formattedCurrentTime)
-                .font(.system(size: 10, weight: .medium, design: .serif))
+                .font(.system(size: 10, weight: .medium))
                 .foregroundColor(.secondary)
                 .frame(width: 40, alignment: .leading)
             
@@ -433,7 +739,7 @@ public struct BeforeAfterInspectorView: View {
             .accentColor(.blue)
             
             Text(videoEngine.formattedDuration)
-                .font(.system(size: 10, weight: .medium, design: .serif))
+                .font(.system(size: 10, weight: .medium))
                 .foregroundColor(.secondary)
                 .frame(width: 40, alignment: .trailing)
             
@@ -490,10 +796,23 @@ public struct BeforeAfterInspectorView: View {
     // MARK: - Bottom Bar
     private var bottomBar: some View {
         HStack(spacing: 12) {
-            if let origDim = result.originalDimensions, let outDim = result.outputDimensions {
+            if result.mediaType == .audio {
+                HStack(spacing: 6) {
+                    Text("Audio Studio")
+                        .font(.system(size: 10, weight: .semibold, design: .serif))
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2.5)
+                        .background(Capsule().fill(state.accentColor.opacity(0.18)))
+                    
+                    Text("Transparent Quality • AAC / M4A • 48 kHz")
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                }
+            } else if let origDim = result.originalDimensions, let outDim = result.outputDimensions {
                 HStack(spacing: 6) {
                     Text(origDim)
-                        .font(.system(size: 10, design: .serif))
+                        .font(.system(size: 10))
                         .foregroundColor(.secondary)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2.5)
@@ -504,18 +823,20 @@ public struct BeforeAfterInspectorView: View {
                         .foregroundColor(.secondary)
                     
                     Text(outDim)
-                        .font(.system(size: 10, weight: .semibold, design: .serif))
+                        .font(.system(size: 10, weight: .semibold))
                         .foregroundColor(.primary)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2.5)
-                        .background(Capsule().fill(Color.blue.opacity(0.18)))
+                        .background(Capsule().fill(state.accentColor.opacity(0.18)))
                 }
             }
             
-            Text("Pinch / Scroll to zoom • Drag to pan • Drag center handle to split")
-                .font(.system(size: 9, design: .serif))
-                .foregroundColor(.secondary.opacity(0.8))
-                .padding(.leading, 4)
+            if result.mediaType != .audio {
+                Text("Pinch / Scroll to zoom • Drag to pan • Drag center handle to split")
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary.opacity(0.8))
+                    .padding(.leading, 4)
+            }
             
             Spacer()
             
@@ -526,7 +847,7 @@ public struct BeforeAfterInspectorView: View {
                     Image(systemName: "folder")
                         .font(.system(size: 10))
                     Text("Reveal in Finder")
-                        .font(.system(size: 10, weight: .medium, design: .serif))
+                        .font(.system(size: 10, weight: .medium))
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
@@ -543,12 +864,12 @@ public struct BeforeAfterInspectorView: View {
                     Image(systemName: "doc.on.clipboard")
                         .font(.system(size: 10))
                     Text("Copy File")
-                        .font(.system(size: 10, weight: .medium, design: .serif))
+                        .font(.system(size: 10, weight: .medium))
                 }
                 .foregroundColor(.white)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(Capsule().fill(Color.blue))
+                .background(Capsule().fill(state.accentColor))
             }
             .buttonStyle(.plain)
         }
@@ -559,6 +880,8 @@ public struct BeforeAfterInspectorView: View {
     private func loadMedia() async {
         if result.mediaType == .video {
             await videoEngine.load(originalURL: result.originalURL, compressedURL: result.outputURL)
+        } else if result.mediaType == .audio {
+            await audioEngine.load(originalURL: result.originalURL, compressedURL: result.outputURL)
         }
         
         let orig = await loadMediaPreview(url: result.originalURL, mediaType: result.mediaType)
@@ -585,6 +908,135 @@ public struct BeforeAfterInspectorView: View {
             return rep.nsImage
         }
         return NSWorkspace.shared.icon(forFile: url.path)
+    }
+}
+
+// MARK: - Synchronized Dual-AVPlayer Engine for Audio Inspection
+@MainActor
+private final class SynchronizedAudioEngine: ObservableObject {
+    @Published var originalPlayer: AVPlayer?
+    @Published var compressedPlayer: AVPlayer?
+    @Published var isPlaying: Bool = false
+    @Published var isLoaded: Bool = false
+    @Published var currentTimeSeconds: Double = 0.0
+    @Published var durationSeconds: Double = 0.0
+    @Published var activeSource: AudioSource = .compressed
+    
+    enum AudioSource: String, CaseIterable {
+        case original = "Original"
+        case compressed = "Squeezed"
+    }
+    
+    private var timeObserverToken: Any?
+    
+    var formattedCurrentTime: String {
+        formatTime(currentTimeSeconds)
+    }
+    
+    var formattedDuration: String {
+        formatTime(durationSeconds)
+    }
+    
+    var formattedRemainingTime: String {
+        let remaining = max(0, durationSeconds - currentTimeSeconds)
+        return "-" + formatTime(remaining)
+    }
+    
+    private func formatTime(_ seconds: Double) -> String {
+        guard seconds.isFinite && seconds >= 0 else { return "00:00" }
+        let s = Int(seconds) % 60
+        let m = Int(seconds) / 60
+        return String(format: "%02d:%02d", m, s)
+    }
+    
+    func load(originalURL: URL, compressedURL: URL) async {
+        let origAsset = AVURLAsset(url: originalURL)
+        let compAsset = AVURLAsset(url: compressedURL)
+        
+        let p1 = AVPlayer(playerItem: AVPlayerItem(asset: origAsset))
+        let p2 = AVPlayer(playerItem: AVPlayerItem(asset: compAsset))
+        
+        p1.isMuted = (activeSource == .compressed)
+        p2.isMuted = (activeSource == .original)
+        
+        self.originalPlayer = p1
+        self.compressedPlayer = p2
+        
+        if let dur = try? await compAsset.load(.duration) {
+            let durSec = CMTimeGetSeconds(dur)
+            if durSec.isFinite && durSec > 0 {
+                self.durationSeconds = durSec
+            }
+        }
+        
+        self.isLoaded = true
+        
+        let interval = CMTime(value: 1, timescale: 30)
+        timeObserverToken = p2.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
+            let sec = CMTimeGetSeconds(time)
+            Task { @MainActor [weak self] in
+                guard let self = self, sec.isFinite else { return }
+                self.currentTimeSeconds = sec
+            }
+        }
+        
+        NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: p2.currentItem,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+                self.seek(to: 0.0)
+                self.pause()
+            }
+        }
+        
+        // Autoplay initial audio preview
+        play()
+    }
+    
+    func togglePlayPause() {
+        if isPlaying {
+            pause()
+        } else {
+            play()
+        }
+    }
+    
+    func play() {
+        originalPlayer?.play()
+        compressedPlayer?.play()
+        isPlaying = true
+    }
+    
+    func pause() {
+        originalPlayer?.pause()
+        compressedPlayer?.pause()
+        isPlaying = false
+    }
+    
+    func seek(to seconds: Double) {
+        let target = CMTime(seconds: seconds, preferredTimescale: 600)
+        originalPlayer?.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+        compressedPlayer?.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+        currentTimeSeconds = seconds
+    }
+    
+    func setSource(_ source: AudioSource) {
+        activeSource = source
+        originalPlayer?.isMuted = (source == .compressed)
+        compressedPlayer?.isMuted = (source == .original)
+    }
+    
+    func cleanup() {
+        pause()
+        if let token = timeObserverToken {
+            compressedPlayer?.removeTimeObserver(token)
+            timeObserverToken = nil
+        }
+        originalPlayer = nil
+        compressedPlayer = nil
     }
 }
 
@@ -804,8 +1256,9 @@ private struct InteractiveZoomPanRepresentable<Content: View>: NSViewRepresentab
         }
         view.onMouseDrag = { dx, dy in
             if zoomScale > 1.0 {
+                // Direct mouse grab and drag
                 panOffset.width += dx
-                panOffset.height -= dy
+                panOffset.height += dy
             }
         }
         view.onDoubleClick = {
@@ -855,7 +1308,7 @@ private struct InteractiveZoomPanRepresentable<Content: View>: NSViewRepresentab
         nsView.onMouseDrag = { dx, dy in
             if zoomScale > 1.0 {
                 panOffset.width += dx
-                panOffset.height -= dy
+                panOffset.height += dy
             }
         }
     }
@@ -889,8 +1342,9 @@ private class InteractiveZoomPanNSView: NSView {
             let zoomDelta = event.deltaY * 0.05
             onMagnify?(zoomDelta)
         } else {
-            // Trackpad 2-finger swipe / pan or regular scroll
-            onScrollPan?(event.scrollingDeltaX * 1.2, event.scrollingDeltaY * 1.2)
+            // Trackpad 2-finger swipe / pan with precise deltas
+            let factor: CGFloat = event.hasPreciseScrollingDeltas ? 1.0 : 8.0
+            onScrollPan?(event.scrollingDeltaX * factor, event.scrollingDeltaY * factor)
         }
     }
     
@@ -907,9 +1361,9 @@ private class InteractiveZoomPanNSView: NSView {
         guard isDraggingMouse else { return }
         let currentLocation = event.locationInWindow
         let dx = currentLocation.x - lastMouseLocation.x
-        let dy = currentLocation.y - lastMouseLocation.y
+        let dy = lastMouseLocation.y - currentLocation.y
         lastMouseLocation = currentLocation
-        onMouseDrag?(dx, -dy)
+        onMouseDrag?(dx, dy)
     }
     
     override func mouseUp(with event: NSEvent) {

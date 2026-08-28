@@ -1,14 +1,14 @@
 #!/bin/bash
 set -e
 
-echo "🔨 Building SqueezeBar (Release)..."
+echo "[SqueezeBar] Building Release binary..."
 swift build -c release
 
 APP_NAME="SqueezeBar.app"
 BUILD_BIN=".build/release/SqueezeBar"
 DEST_APP="./${APP_NAME}"
 
-echo "📦 Creating macOS App Bundle..."
+echo "[SqueezeBar] Creating macOS App Bundle..."
 rm -rf "${DEST_APP}"
 mkdir -p "${DEST_APP}/Contents/MacOS"
 mkdir -p "${DEST_APP}/Contents/Resources"
@@ -21,9 +21,9 @@ fi
 
 # Optional codesign with ad-hoc signature for local execution
 if command -v codesign &> /dev/null; then
-    echo "🔏 Signing App with entitlements..."
+    echo "[SqueezeBar] Signing application bundle with entitlements..."
     codesign --force --deep --sign - --entitlements "Resources/SqueezeBar.entitlements" "${DEST_APP}"
 fi
 
-echo "✅ Successfully created ${APP_NAME}!"
-echo "To run, execute: open ${APP_NAME}"
+echo "[SqueezeBar] Successfully built ${APP_NAME}"
+echo "[SqueezeBar] Location: ${DEST_APP}"

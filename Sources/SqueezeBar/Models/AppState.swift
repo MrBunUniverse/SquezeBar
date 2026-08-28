@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import Combine
 import AppKit
+import ServiceManagement
 
 @MainActor
 public final class AppState: ObservableObject {
@@ -32,6 +33,11 @@ public final class AppState: ObservableObject {
         
         static let audioBitrate = "squeezebar.audioBitrate"
         
+        static let pdfDPI = "squeezebar.pdfDPI"
+        static let pdfImageQuality = "squeezebar.pdfImageQuality"
+        static let pdfGrayscale = "squeezebar.pdfGrayscale"
+        static let pdfStripMetadata = "squeezebar.pdfStripMetadata"
+        
         static let targetSizeMode = "squeezebar.targetSizeMode"
         static let customTargetSizeMB = "squeezebar.customTargetSizeMB"
         static let preserveResolutionInTargetMode = "squeezebar.preserveResolutionInTargetMode"
@@ -54,12 +60,52 @@ public final class AppState: ObservableObject {
         static let customOutputFolder = "squeezebar.customOutputFolder"
         static let exportToSubfolder = "squeezebar.exportToSubfolder"
         static let subfolderName = "squeezebar.subfolderName"
+        static let finderServiceEnabled = "squeezebar.finderServiceEnabled"
+        static let menuBarDisplayStyle = "squeezebar.menuBarDisplayStyle"
+        static let soundTheme = "squeezebar.soundTheme"
+        static let uiScale = "squeezebar.uiScale"
+        static let floatingBallEnabled = "squeezebar.floatingBallEnabled"
+    }
+    
+    // MARK: - Desktop Floating Drop Ball
+    @Published public var floatingBallEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(floatingBallEnabled, forKey: Keys.floatingBallEnabled)
+            DispatchQueue.main.async {
+                FloatingBallController.shared.updateVisibility()
+            }
+        }
+    }
+    
+    // MARK: - UI Scaling / Display Density Option
+    @Published public var uiScale: UIScaleOption {
+        didSet {
+            UserDefaults.standard.set(uiScale.rawValue, forKey: Keys.uiScale)
+            DispatchQueue.main.async {
+                StatusBarController.sharedInstance?.updatePopoverDimensionsForScale(self.uiScale)
+                FloatingDropWindowController.shared.updateWindowDimensionsForScale(self.uiScale)
+            }
+        }
     }
     
     // MARK: - Pro / Basic Tier State
     @Published public var isProUser: Bool {
         didSet {
             UserDefaults.standard.set(isProUser, forKey: Keys.isProUser)
+        }
+    }
+    
+    // MARK: - Menu Bar Display Style (Supporter Perk)
+    @Published public var menuBarDisplayStyle: MenuBarDisplayStyle {
+        didSet {
+            UserDefaults.standard.set(menuBarDisplayStyle.rawValue, forKey: Keys.menuBarDisplayStyle)
+        }
+    }
+    
+    // MARK: - Completion Sound Theme (Supporter Perk)
+    @Published public var soundTheme: SoundEffectTheme {
+        didSet {
+            UserDefaults.standard.set(soundTheme.rawValue, forKey: Keys.soundTheme)
         }
     }
     
@@ -77,9 +123,6 @@ public final class AppState: ObservableObject {
     }
     
     public var accentColor: Color {
-        guard isProUser else {
-            return Color.blue
-        }
         switch accentTheme {
         case .custom:
             return AppState.colorFromHex(customAccentHex) ?? Color(red: 0.1, green: 0.5, blue: 1.0)
@@ -210,6 +253,31 @@ public final class AppState: ObservableObject {
         }
     }
     
+    // MARK: - PDF Settings
+    @Published public var pdfDPI: PDFDPIOption {
+        didSet {
+            UserDefaults.standard.set(pdfDPI.rawValue, forKey: Keys.pdfDPI)
+        }
+    }
+    
+    @Published public var pdfImageQuality: Double {
+        didSet {
+            UserDefaults.standard.set(pdfImageQuality, forKey: Keys.pdfImageQuality)
+        }
+    }
+    
+    @Published public var pdfGrayscale: Bool {
+        didSet {
+            UserDefaults.standard.set(pdfGrayscale, forKey: Keys.pdfGrayscale)
+        }
+    }
+    
+    @Published public var pdfStripMetadata: Bool {
+        didSet {
+            UserDefaults.standard.set(pdfStripMetadata, forKey: Keys.pdfStripMetadata)
+        }
+    }
+    
     // MARK: - Watch Folder Settings
     @Published public var watchFolderPath: String? {
         didSet {
@@ -262,6 +330,8 @@ public final class AppState: ObservableObject {
             // 2 MB: Aggressive compression
             imageQualitySlider = 0.65
             videoQualitySlider = 0.50
+            pdfDPI = .dpi72
+            pdfImageQuality = 0.55
             if !preserveResolutionInTargetMode {
                 imageResolutionScale = 0.75
                 videoResolutionScale = 0.50
@@ -270,6 +340,8 @@ public final class AppState: ObservableObject {
             // 10 MB: Balanced compression
             imageQualitySlider = 0.75
             videoQualitySlider = 0.65
+            pdfDPI = .dpi150
+            pdfImageQuality = 0.65
             if !preserveResolutionInTargetMode {
                 imageResolutionScale = 0.85
                 videoResolutionScale = 0.75
@@ -278,6 +350,8 @@ public final class AppState: ObservableObject {
             // 25 MB: High quality target
             imageQualitySlider = 0.85
             videoQualitySlider = 0.80
+            pdfDPI = .dpi150
+            pdfImageQuality = 0.75
             if !preserveResolutionInTargetMode {
                 imageResolutionScale = 1.0
                 videoResolutionScale = 1.0
@@ -286,6 +360,8 @@ public final class AppState: ObservableObject {
             // 50 MB: Visually lossless / large target
             imageQualitySlider = 0.90
             videoQualitySlider = 0.85
+            pdfDPI = .dpi200
+            pdfImageQuality = 0.85
             if !preserveResolutionInTargetMode {
                 imageResolutionScale = 1.0
                 videoResolutionScale = 1.0
@@ -320,6 +396,61 @@ public final class AppState: ObservableObject {
                 imageResolutionScale = 1.0
                 videoResolutionScale = 1.0
             }
+        }
+    }
+    
+    // MARK: - Staged Queue Management
+    @Published public var stagedQueue: [StagedQueueItem] = []
+    
+    @MainActor
+    public func addFilesToQueue(_ urls: [URL]) {
+        let baseConfig = currentConfiguration()
+        var addedCount = 0
+        for url in urls {
+            var isDir: ObjCBool = false
+            if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir), isDir.boolValue {
+                let resolved = MediaCompressionEngine.shared.gatherMediaFiles(from: [url])
+                for subURL in resolved {
+                    let mediaType = MediaType.classify(url: subURL)
+                    guard mediaType != MediaType.unsupported else { continue }
+                    let size = (try? subURL.resourceValues(forKeys: [URLResourceKey.fileSizeKey]).fileSize).map { Int64($0) } ?? 0
+                    let item = StagedQueueItem(fileURL: subURL, originalSize: size, mediaType: mediaType, baseConfig: baseConfig)
+                    stagedQueue.append(item)
+                    addedCount += 1
+                }
+            } else {
+                let mediaType = MediaType.classify(url: url)
+                guard mediaType != MediaType.unsupported else { continue }
+                let size = (try? url.resourceValues(forKeys: [URLResourceKey.fileSizeKey]).fileSize).map { Int64($0) } ?? 0
+                let item = StagedQueueItem(fileURL: url, originalSize: size, mediaType: mediaType, baseConfig: baseConfig)
+                stagedQueue.append(item)
+                addedCount += 1
+            }
+        }
+        
+        if addedCount > 0 && hapticEnabled {
+            NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+        }
+    }
+    
+    @MainActor
+    public func removeFromQueue(id: UUID) {
+        stagedQueue.removeAll { $0.id == id }
+    }
+    
+    @MainActor
+    public func clearQueue() {
+        stagedQueue.removeAll()
+    }
+    
+    @MainActor
+    public func squeezeStagedQueue(targetFolderId: UUID? = nil) {
+        guard !stagedQueue.isEmpty else { return }
+        let itemsToProcess = stagedQueue
+        stagedQueue.removeAll()
+        
+        Task {
+            await MediaCompressionEngine.shared.processStagedItems(itemsToProcess, targetFolderId: targetFolderId)
         }
     }
     
@@ -363,6 +494,42 @@ public final class AppState: ObservableObject {
     @Published public var soundEnabled: Bool {
         didSet {
             UserDefaults.standard.set(soundEnabled, forKey: Keys.soundEnabled)
+        }
+    }
+    
+    // MARK: - Finder Quick Action (Right-Click Context Menu)
+    @Published public var finderServiceEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(finderServiceEnabled, forKey: Keys.finderServiceEnabled)
+        }
+    }
+    
+    // MARK: - Launch at macOS Boot / Login
+    @Published public var launchAtLogin: Bool = false
+    
+    public func updateLaunchAtLoginStatus() {
+        if #available(macOS 13.0, *) {
+            launchAtLogin = (SMAppService.mainApp.status == .enabled)
+        }
+    }
+    
+    public func setLaunchAtLogin(enabled: Bool) {
+        if #available(macOS 13.0, *) {
+            do {
+                if enabled {
+                    if SMAppService.mainApp.status != .enabled {
+                        try SMAppService.mainApp.register()
+                    }
+                } else {
+                    if SMAppService.mainApp.status == .enabled {
+                        try SMAppService.mainApp.unregister()
+                    }
+                }
+                launchAtLogin = (SMAppService.mainApp.status == .enabled)
+            } catch {
+                print("Failed to update Launch at Login: \(error)")
+                launchAtLogin = (SMAppService.mainApp.status == .enabled)
+            }
         }
     }
     
@@ -432,6 +599,16 @@ public final class AppState: ObservableObject {
         let savedAudioBitrate = UserDefaults.standard.string(forKey: Keys.audioBitrate) ?? ""
         self.audioBitrate = AudioBitratePreference(rawValue: savedAudioBitrate) ?? .k128
         
+        // Load PDF Settings
+        let savedPDFDPI = UserDefaults.standard.string(forKey: Keys.pdfDPI) ?? ""
+        self.pdfDPI = PDFDPIOption(rawValue: savedPDFDPI) ?? .dpi150
+        
+        let savedPDFQuality = UserDefaults.standard.double(forKey: Keys.pdfImageQuality)
+        self.pdfImageQuality = savedPDFQuality > 0 ? savedPDFQuality : 0.70
+        
+        self.pdfGrayscale = UserDefaults.standard.bool(forKey: Keys.pdfGrayscale)
+        self.pdfStripMetadata = UserDefaults.standard.object(forKey: Keys.pdfStripMetadata) as? Bool ?? true
+        
         // Load Watch Folder Settings
         self.watchFolderPath = UserDefaults.standard.string(forKey: Keys.watchFolderPath)
         self.isWatchFolderEnabled = UserDefaults.standard.bool(forKey: Keys.isWatchFolderEnabled)
@@ -450,6 +627,12 @@ public final class AppState: ObservableObject {
         let savedTheme = UserDefaults.standard.string(forKey: Keys.accentTheme) ?? ""
         self.accentTheme = AccentColorTheme(rawValue: savedTheme) ?? .blue
         
+        let savedBarStyle = UserDefaults.standard.string(forKey: Keys.menuBarDisplayStyle) ?? ""
+        self.menuBarDisplayStyle = MenuBarDisplayStyle(rawValue: savedBarStyle) ?? .iconOnly
+        
+        let savedSoundTheme = UserDefaults.standard.string(forKey: Keys.soundTheme) ?? ""
+        self.soundTheme = SoundEffectTheme(rawValue: savedSoundTheme) ?? .defaultGlass
+        
         let savedCustomHex = UserDefaults.standard.string(forKey: Keys.customAccentHex) ?? ""
         self.customAccentHex = savedCustomHex.isEmpty ? "007AFF" : savedCustomHex
         
@@ -457,7 +640,21 @@ public final class AppState: ObservableObject {
         self.customOutputFolder = UserDefaults.standard.string(forKey: Keys.customOutputFolder)
         self.exportToSubfolder = UserDefaults.standard.bool(forKey: Keys.exportToSubfolder)
         self.subfolderName = UserDefaults.standard.string(forKey: Keys.subfolderName) ?? "Squeezed"
+        self.finderServiceEnabled = UserDefaults.standard.object(forKey: Keys.finderServiceEnabled) as? Bool ?? true
         self.stripMetadata = UserDefaults.standard.object(forKey: Keys.stripMetadata) as? Bool ?? true     
+        
+        if UserDefaults.standard.object(forKey: Keys.floatingBallEnabled) == nil {
+            self.floatingBallEnabled = true
+        } else {
+            self.floatingBallEnabled = UserDefaults.standard.bool(forKey: Keys.floatingBallEnabled)
+        }
+        
+        if let rawScale = UserDefaults.standard.string(forKey: Keys.uiScale),
+           let scale = UIScaleOption(rawValue: rawScale) {
+            self.uiScale = scale
+        } else {
+            self.uiScale = .medium
+        }
         
         if UserDefaults.standard.object(forKey: Keys.hapticEnabled) == nil {
             self.hapticEnabled = true
@@ -481,6 +678,7 @@ public final class AppState: ObservableObject {
         self.totalOriginalBytes = Int64(UserDefaults.standard.integer(forKey: Keys.totalOriginalBytes))
         self.totalFilesProcessed = UserDefaults.standard.integer(forKey: Keys.totalFilesProcessed)
         
+        updateLaunchAtLoginStatus()
         loadFolders()
         loadHistory()
     }
@@ -603,6 +801,10 @@ public final class AppState: ObservableObject {
             videoRemoveAudio: videoRemoveAudio,
             gifFramerate: gifFramerate,
             audioBitrate: audioBitrate,
+            pdfDPI: pdfDPI,
+            pdfImageQuality: pdfImageQuality,
+            pdfGrayscale: pdfGrayscale,
+            pdfStripMetadata: pdfStripMetadata,
             targetSizeMode: targetSizeMode,
             customTargetSizeMB: customTargetSizeMB,
             preserveResolutionInTargetMode: preserveResolutionInTargetMode,
@@ -703,6 +905,46 @@ public final class AppState: ObservableObject {
         updateProcessingState()
     }
     
+    public func cancelJob(id: UUID) {
+        if let idx = activeJobs.firstIndex(where: { $0.id == id }) {
+            activeJobs[idx].isFinished = true
+            activeJobs[idx].error = "Cancelled"
+            activeJobs[idx].statusText = "Cancelled"
+        }
+        updateProcessingState()
+        
+        Task {
+            await MediaCompressionEngine.shared.cancelJob(id: id)
+        }
+        
+        Task {
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            self.activeJobs.removeAll { $0.id == id }
+            self.updateProcessingState()
+        }
+    }
+    
+    public func cancelAllJobs() {
+        for idx in activeJobs.indices {
+            if !activeJobs[idx].isFinished {
+                activeJobs[idx].isFinished = true
+                activeJobs[idx].error = "Cancelled"
+                activeJobs[idx].statusText = "Cancelled"
+            }
+        }
+        updateProcessingState()
+        
+        Task {
+            await MediaCompressionEngine.shared.cancelAllJobs()
+        }
+        
+        Task {
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            self.activeJobs.removeAll { $0.isFinished }
+            self.updateProcessingState()
+        }
+    }
+    
     private func updateProcessingState() {
         let unfinished = activeJobs.filter { !$0.isFinished }
         isProcessing = !unfinished.isEmpty
@@ -717,9 +959,10 @@ public final class AppState: ObservableObject {
     public func triggerSuccessBadge() {
         showSuccessBadge = true
         
-        // Play pleasing native completion sound
+        // Play pleasing completion sound
         if soundEnabled {
-            NSSound(named: "Glass")?.play()
+            let soundName = soundTheme.systemSoundName
+            NSSound(named: soundName)?.play()
         }
         
         if hapticEnabled {

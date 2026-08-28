@@ -95,10 +95,13 @@ public struct HardwareAudioCompressor: Sendable {
         // ---- Setup Writer ----
         let writer = try AVAssetWriter(outputURL: destinationURL, fileType: .m4a)
         
+        let numberOfChannels: Int = targetBitrate <= 32_000 ? 1 : 2
+        let sampleRate: Double = targetBitrate <= 16_000 ? 16000.0 : (targetBitrate <= 32_000 ? 22050.0 : 44100.0)
+        
         let audioCompressionSettings: [String: Any] = [
             AVFormatIDKey: kAudioFormatMPEG4AAC,
-            AVNumberOfChannelsKey: 2,
-            AVSampleRateKey: 44100.0,
+            AVNumberOfChannelsKey: numberOfChannels,
+            AVSampleRateKey: sampleRate,
             AVEncoderBitRateKey: targetBitrate
         ]
         

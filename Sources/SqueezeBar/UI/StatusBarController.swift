@@ -8,7 +8,6 @@ public final class StatusBarController: NSObject {
     
     // MARK: - Dimensions
     private let normalWidth: CGFloat = 34.0
-    private let expandedWidth: CGFloat = 165.0
     private let barHeight: CGFloat = 24.0
     
     // MARK: - Properties
@@ -53,24 +52,36 @@ public final class StatusBarController: NSObject {
         }
     }
     
-    // MARK: - Smooth Spring Expansion
-    public func animateExpansion(expanded: Bool) {
-        let targetWidth = expanded ? expandedWidth : normalWidth
+    // MARK: - Dynamic Status Item Sizing
+    public var idleWidth: CGFloat {
+        let state = AppState.shared
         
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.22
-            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            context.allowsImplicitAnimation = true
-            
-            self.statusItem.length = targetWidth
-            self.dropView.layoutSubtreeIfNeeded()
+        switch state.menuBarDisplayStyle {
+        case .iconOnly:
+            return normalWidth
+        case .minimalMonochrome:
+            return 28.0
+        case .liveSavings:
+            let savedStr = ByteCountFormatter.string(fromByteCount: state.totalBytesSaved, countStyle: .file)
+            let font = NSFont.monospacedDigitSystemFont(ofSize: 10.5, weight: .semibold)
+            let textWidth = (savedStr as NSString).size(withAttributes: [.font: font]).width
+            return normalWidth + textWidth + 10.0
+        }
+    }
+    
+    public func updateStatusItemLength() {
+        let target = idleWidth
+        if statusItem.length != target {
+            statusItem.length = target
+            dropView.needsDisplay = true
         }
     }
     
     // MARK: - Popover Setup
     private func setupPopover() {
         let pop = NSPopover()
-        pop.contentSize = NSSize(width: 440, height: 560)
+        let scale = AppState.shared.uiScale
+        pop.contentSize = NSSize(width: scale.baseWidth, height: scale.baseHeight)
         pop.behavior = .transient
         pop.animates = true
         
@@ -81,12 +92,17 @@ public final class StatusBarController: NSObject {
         self.popover = pop
     }
     
+    public func updatePopoverDimensionsForScale(_ scale: UIScaleOption) {
+        guard let pop = popover else { return }
+        pop.contentSize = NSSize(width: scale.baseWidth, height: scale.baseHeight)
+    }
+    
     public func ensurePopoverDimensions(width: CGFloat, height: CGFloat) {
         guard let pop = popover, pop.isShown else { return }
-        let currentSize = pop.contentSize
-        let targetW = max(currentSize.width, width)
-        let targetH = max(currentSize.height, height)
-        if targetW != currentSize.width || targetH != currentSize.height {
+        let scale = AppState.shared.uiScale
+        let targetW = max(pop.contentSize.width, width * scale.scaleFactor)
+        let targetH = max(pop.contentSize.height, height * scale.scaleFactor)
+        if targetW != pop.contentSize.width || targetH != pop.contentSize.height {
             pop.contentSize = NSSize(width: targetW, height: targetH)
         }
     }
@@ -105,13 +121,14 @@ public final class StatusBarController: NSObject {
         }
     }
     
-    public func showPopover(sender: NSView) {
+    public func showPopover(sender: NSView? = nil) {
         if AppState.shared.isDetached {
             FloatingDropWindowController.shared.showFloatingWindow()
             return
         }
         
-        if let button = statusItem.button {
+        let targetView = sender ?? statusItem.button ?? dropView
+        if let button = targetView {
             popover.behavior = AppState.shared.isPinned ? .applicationDefined : .transient
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             NSApp.activate(ignoringOtherApps: true)

@@ -2,6 +2,53 @@ import Foundation
 import UniformTypeIdentifiers
 import AVFoundation
 
+// MARK: - UI Scaling / Display Density
+public enum UIScaleOption: String, Codable, Sendable, CaseIterable {
+    case small = "Small"
+    case medium = "Medium"
+    case large = "Large"
+    
+    public var scaleFactor: CGFloat {
+        switch self {
+        case .small: return 0.85
+        case .medium: return 1.00
+        case .large: return 1.18
+        }
+    }
+    
+    public var percentageLabel: String {
+        switch self {
+        case .small: return "85%"
+        case .medium: return "100%"
+        case .large: return "118%"
+        }
+    }
+    
+    public var description: String {
+        switch self {
+        case .small: return "Compact density (85%) for 13\" MacBook Air / smaller displays."
+        case .medium: return "Standard default scale (100%) optimized for MacBook Pro."
+        case .large: return "Expanded size (118%) for 16\" MacBook Pro, Studio Display, or 4K monitors."
+        }
+    }
+    
+    public var baseWidth: CGFloat {
+        switch self {
+        case .small: return 416
+        case .medium: return 490
+        case .large: return 578
+        }
+    }
+    
+    public var baseHeight: CGFloat {
+        switch self {
+        case .small: return 560
+        case .medium: return 660
+        case .large: return 778
+        }
+    }
+}
+
 // MARK: - Accent Color Theme
 public enum AccentColorTheme: String, Codable, Sendable, CaseIterable {
     case custom = "Custom"
@@ -15,11 +62,59 @@ public enum AccentColorTheme: String, Codable, Sendable, CaseIterable {
     case graphite = "Graphite"
 }
 
+// MARK: - Menu Bar Display Style (Supporter Customization)
+public enum MenuBarDisplayStyle: String, Codable, Sendable, CaseIterable {
+    case iconOnly = "Standard Icon"
+    case liveSavings = "Icon + Live Savings"
+    case minimalMonochrome = "Minimalist Dot"
+    
+    public var iconName: String {
+        switch self {
+        case .iconOnly: return "arrow.down.right.and.arrow.up.left"
+        case .liveSavings: return "chart.bar.xaxis"
+        case .minimalMonochrome: return "circle.inset.filled"
+        }
+    }
+}
+
+// MARK: - Completion Sound Theme (Supporter Customization)
+public enum SoundEffectTheme: String, Codable, Sendable, CaseIterable {
+    case defaultGlass = "Crystal Glass (Default)"
+    case arcade8Bit = "8-Bit Arcade"
+    case bubblePop = "Bubble Pop"
+    case hydraulicPress = "Hydraulic Squeeze"
+    case sciFiWarp = "Sci-Fi Warp"
+    case heroFanfare = "Hero Fanfare"
+    
+    public var icon: String {
+        switch self {
+        case .defaultGlass: return "sparkles"
+        case .arcade8Bit: return "gamecontroller.fill"
+        case .bubblePop: return "drop.fill"
+        case .hydraulicPress: return "wrench.and.screwdriver.fill"
+        case .sciFiWarp: return "bolt.horizontal.fill"
+        case .heroFanfare: return "horn.fill"
+        }
+    }
+    
+    public var systemSoundName: String {
+        switch self {
+        case .defaultGlass: return "Glass"
+        case .arcade8Bit: return "Ping"
+        case .bubblePop: return "Pop"
+        case .hydraulicPress: return "Blow"
+        case .sciFiWarp: return "Submarine"
+        case .heroFanfare: return "Hero"
+        }
+    }
+}
+
 // MARK: - Media Type Classification
 public enum MediaType: String, Codable, Sendable, CaseIterable {
     case image
     case video
     case audio
+    case pdf
     case unsupported
     
     public static func classify(url: URL) -> MediaType {
@@ -30,6 +125,8 @@ public enum MediaType: String, Codable, Sendable, CaseIterable {
                 return .video
             } else if type.conforms(to: .audio) {
                 return .audio
+            } else if type.conforms(to: .pdf) {
+                return .pdf
             }
         }
         
@@ -44,9 +141,28 @@ public enum MediaType: String, Codable, Sendable, CaseIterable {
             return .video
         } else if audioExtensions.contains(ext) {
             return .audio
+        } else if ext == "pdf" {
+            return .pdf
         }
         
         return .unsupported
+    }
+}
+
+// MARK: - PDF DPI Option
+public enum PDFDPIOption: String, Codable, Sendable, CaseIterable {
+    case dpi72 = "72 DPI (Compact)"
+    case dpi150 = "150 DPI (Screen)"
+    case dpi200 = "200 DPI (Standard)"
+    case dpi300 = "300 DPI (Print)"
+    
+    public var dpiValue: CGFloat {
+        switch self {
+        case .dpi72: return 72.0
+        case .dpi150: return 150.0
+        case .dpi200: return 200.0
+        case .dpi300: return 300.0
+        }
     }
 }
 
@@ -76,6 +192,8 @@ public enum ImageFormatPolicy: String, Codable, Sendable, CaseIterable {
 
 // MARK: - Audio Bitrate Preference
 public enum AudioBitratePreference: String, Codable, Sendable, CaseIterable {
+    case k16 = "16 kbps (Crushed Meme)"
+    case k32 = "32 kbps (Lo-Fi Radio)"
     case k64 = "64 kbps (Voice)"
     case k128 = "128 kbps (Standard)"
     case k192 = "192 kbps (High)"
@@ -84,6 +202,8 @@ public enum AudioBitratePreference: String, Codable, Sendable, CaseIterable {
     
     public var bitrateInBps: Int {
         switch self {
+        case .k16: return 16_000
+        case .k32: return 32_000
         case .k64: return 64_000
         case .k128: return 128_000
         case .k192: return 192_000
@@ -328,8 +448,8 @@ public struct CompressionJob: Identifiable, Sendable {
 // MARK: - Target Size Automation Mode
 public enum TargetSizeMode: String, Codable, Sendable, CaseIterable {
     case off = "Manual Mode"
-    case discord25 = "25 MB (Discord)"
     case discord50 = "50 MB (Nitro / Slack)"
+    case discord25 = "25 MB (Discord)"
     case email10 = "10 MB (Email)"
     case web2 = "2 MB (Fast Web)"
     case custom = "Custom MB Limit"
@@ -337,8 +457,8 @@ public enum TargetSizeMode: String, Codable, Sendable, CaseIterable {
     public var targetMegabytes: Double? {
         switch self {
         case .off: return nil
-        case .discord25: return 25.0
         case .discord50: return 50.0
+        case .discord25: return 25.0
         case .email10: return 10.0
         case .web2: return 2.0
         case .custom: return nil
@@ -358,6 +478,10 @@ public struct CompressionConfiguration: Sendable {
     public var videoRemoveAudio: Bool
     public var gifFramerate: GIFFramerateOption
     public var audioBitrate: AudioBitratePreference
+    public var pdfDPI: PDFDPIOption
+    public var pdfImageQuality: Double
+    public var pdfGrayscale: Bool
+    public var pdfStripMetadata: Bool
     public var targetSizeMode: TargetSizeMode
     public var customTargetSizeMB: Double
     public var preserveResolutionInTargetMode: Bool
@@ -396,6 +520,10 @@ public struct CompressionConfiguration: Sendable {
         self.videoRemoveAudio = false
         self.gifFramerate = .half15
         self.audioBitrate = .k128
+        self.pdfDPI = .dpi150
+        self.pdfImageQuality = 0.70
+        self.pdfGrayscale = false
+        self.pdfStripMetadata = true
         self.targetSizeMode = .off
         self.customTargetSizeMB = 25.0
         self.preserveResolutionInTargetMode = false
@@ -418,6 +546,10 @@ public struct CompressionConfiguration: Sendable {
         videoRemoveAudio: Bool = false,
         gifFramerate: GIFFramerateOption = .half15,
         audioBitrate: AudioBitratePreference = .k128,
+        pdfDPI: PDFDPIOption = .dpi150,
+        pdfImageQuality: Double = 0.70,
+        pdfGrayscale: Bool = false,
+        pdfStripMetadata: Bool = true,
         targetSizeMode: TargetSizeMode = .off,
         customTargetSizeMB: Double = 25.0,
         preserveResolutionInTargetMode: Bool = false,
@@ -438,6 +570,10 @@ public struct CompressionConfiguration: Sendable {
         self.videoRemoveAudio = videoRemoveAudio
         self.gifFramerate = gifFramerate
         self.audioBitrate = audioBitrate
+        self.pdfDPI = pdfDPI
+        self.pdfImageQuality = pdfImageQuality
+        self.pdfGrayscale = pdfGrayscale
+        self.pdfStripMetadata = pdfStripMetadata
         self.targetSizeMode = targetSizeMode
         self.customTargetSizeMB = customTargetSizeMB
         self.preserveResolutionInTargetMode = preserveResolutionInTargetMode

@@ -3,6 +3,7 @@ import AppKit
 import UniformTypeIdentifiers
 import AVFoundation
 import CoreMedia
+import PDFKit
 
 public actor MediaCompressionEngine {
     public static let shared = MediaCompressionEngine()
@@ -10,23 +11,123 @@ public actor MediaCompressionEngine {
     private let imageCompressor = AcceleratedImageCompressor()
     private let videoCompressor = HardwareVideoCompressor()
     private let audioCompressor = HardwareAudioCompressor()
+    private let pdfCompressor = AcceleratedPDFCompressor()
+    
+    private var activeJobTasks: [UUID: Task<Void, Never>] = [:]
+    private var activeDestinationURLs: [UUID: URL] = [:]
+    private var cancelledJobIds: Set<UUID> = []
     
     private init() {}
+    
+    // MARK: - Cancellation API
+    public func cancelJob(id: UUID) {
+        cancelledJobIds.insert(id)
+        if let destURL = activeDestinationURLs[id] {
+            try? FileManager.default.removeItem(at: destURL)
+            activeDestinationURLs.removeValue(forKey: id)
+        }
+        if let task = activeJobTasks[id] {
+            task.cancel()
+            activeJobTasks.removeValue(forKey: id)
+        }
+    }
+    
+    public func cancelAllJobs() {
+        for (id, task) in activeJobTasks {
+            cancelledJobIds.insert(id)
+            task.cancel()
+            if let destURL = activeDestinationURLs[id] {
+                try? FileManager.default.removeItem(at: destURL)
+            }
+        }
+        activeJobTasks.removeAll()
+        activeDestinationURLs.removeAll()
+    }
+    
+    private func registerJobTask(id: UUID, task: Task<Void, Never>) {
+        activeJobTasks[id] = task
+    }
+    
+    private func unregisterJobTask(id: UUID) {
+        activeJobTasks.removeValue(forKey: id)
+        activeDestinationURLs.removeValue(forKey: id)
+    }
+    
+    // MARK: - Staged Queue Processing Entry Point (Per-File Custom Configurations)
+    public func processStagedItems(_ items: [StagedQueueItem], targetFolderId: UUID? = nil) async {
+        guard !items.isEmpty else { return }
+        
+        let baseConfig = await AppState.shared.currentConfiguration()
+        var jobsToRun: [(url: URL, type: MediaType, jobId: UUID, origSize: Int64, config: CompressionConfiguration)] = []
+        
+        for item in items {
+            let mediaType = item.mediaType
+            guard mediaType != .unsupported else { continue }
+            
+            let originalSize = item.originalSize > 0 ? item.originalSize : fileSize(of: item.fileURL)
+            let jobId = UUID()
+            let itemConfig = item.buildConfiguration(baseConfig: baseConfig)
+            
+            let job = CompressionJob(
+                id: jobId,
+                fileURL: item.fileURL,
+                mediaType: mediaType,
+                progress: 0.0,
+                statusText: "Queued"
+            )
+            
+            await AppState.shared.addJob(job)
+            jobsToRun.append((url: item.fileURL, type: mediaType, jobId: jobId, origSize: originalSize, config: itemConfig))
+        }
+        
+        guard !jobsToRun.isEmpty else { return }
+        
+        let cores = ProcessInfo.processInfo.activeProcessorCount
+        let maxConcurrent: Int = max(2, min(cores <= 8 ? 2 : 4, jobsToRun.count))
+        
+        var anySucceeded = false
+        await withTaskGroup(of: Bool.self) { group in
+            var running = 0
+            for item in jobsToRun {
+                if running >= maxConcurrent {
+                    if let res = await group.next(), res { anySucceeded = true }
+                    running -= 1
+                }
+                
+                running += 1
+                group.addTask {
+                    let task = Task {
+                        await self.processSingleFile(
+                            url: item.url,
+                            mediaType: item.type,
+                            jobId: item.jobId,
+                            originalSize: item.origSize,
+                            config: item.config,
+                            targetFolderId: targetFolderId
+                        )
+                    }
+                    await self.registerJobTask(id: item.jobId, task: task)
+                    await task.value
+                    await self.unregisterJobTask(id: item.jobId)
+                    return true
+                }
+            }
+            
+            for await res in group {
+                if res { anySucceeded = true }
+            }
+        }
+        
+        if anySucceeded {
+            await AppState.shared.triggerSuccessBadge()
+        }
+    }
     
     // MARK: - Batch Processing Entry Point
     public func processDroppedURLs(_ urls: [URL], targetFolderId: UUID? = nil) async {
         // 1. Gather all individual media files (recursively expanding folders)
-        var resolvedFiles = gatherMediaFiles(from: urls)
+        let resolvedFiles = gatherMediaFiles(from: urls)
         guard !resolvedFiles.isEmpty else { return }
-        
-        let isPro = await AppState.shared.isProUser
-        if !isPro && resolvedFiles.count > 50 {
-            let excess = resolvedFiles.count - 50
-            resolvedFiles = Array(resolvedFiles.prefix(50))
-            await MainActor.run {
-                AppState.shared.supporterBannerNotice = "Free tier is limited to 50 files per batch. Processing first 50 files (\(excess) remaining files skipped). Upgrade to Supporter for unlimited batching!"
-            }
-        }
         
         // 2. Fetch current config from main actor
         let config = await AppState.shared.currentConfiguration()
@@ -59,32 +160,43 @@ public actor MediaCompressionEngine {
         let cores = ProcessInfo.processInfo.activeProcessorCount
         let maxConcurrent: Int = max(2, min(cores <= 8 ? 2 : 4, jobsToRun.count))
         
-        await withTaskGroup(of: Void.self) { group in
+        var anySucceeded = false
+        await withTaskGroup(of: Bool.self) { group in
             var running = 0
             for item in jobsToRun {
                 if running >= maxConcurrent {
-                    await group.next()
+                    if let res = await group.next(), res { anySucceeded = true }
                     running -= 1
                 }
                 
                 running += 1
                 group.addTask {
-                    await self.processSingleFile(
-                        url: item.url,
-                        mediaType: item.type,
-                        jobId: item.jobId,
-                        originalSize: item.origSize,
-                        config: config,
-                        targetFolderId: targetFolderId
-                    )
+                    let task = Task {
+                        await self.processSingleFile(
+                            url: item.url,
+                            mediaType: item.type,
+                            jobId: item.jobId,
+                            originalSize: item.origSize,
+                            config: config,
+                            targetFolderId: targetFolderId
+                        )
+                    }
+                    await self.registerJobTask(id: item.jobId, task: task)
+                    await task.value
+                    await self.unregisterJobTask(id: item.jobId)
+                    return true
                 }
             }
             
-            await group.waitForAll()
+            for await res in group {
+                if res { anySucceeded = true }
+            }
         }
         
-        // 5. Trigger success feedback on UI
-        await AppState.shared.triggerSuccessBadge()
+        // 5. Trigger success feedback on UI if jobs finished without total cancellation
+        if anySucceeded {
+            await AppState.shared.triggerSuccessBadge()
+        }
     }
     
     // MARK: - Single File Processing
@@ -96,6 +208,12 @@ public actor MediaCompressionEngine {
         config: CompressionConfiguration,
         targetFolderId: UUID? = nil
     ) async {
+        if cancelledJobIds.contains(jobId) || Task.isCancelled {
+            cancelledJobIds.remove(jobId)
+            await AppState.shared.finishJob(id: jobId, result: nil, error: "Cancelled")
+            return
+        }
+        
         let isSecurityScoped = url.startAccessingSecurityScopedResource()
         defer {
             if isSecurityScoped {
@@ -106,10 +224,14 @@ public actor MediaCompressionEngine {
         let origDim = await probeDimensions(for: url, mediaType: mediaType)
         let startTime = Date()
         var destinationURL = generateDestinationURL(for: url, mediaType: mediaType, config: config)
+        activeDestinationURLs[jobId] = destinationURL
         
         await AppState.shared.updateJob(id: jobId, progress: 0.05, statusText: "Compressing...")
         
         do {
+            if cancelledJobIds.contains(jobId) || Task.isCancelled {
+                throw NSError(domain: "SqueezeBar", code: -999, userInfo: [NSLocalizedDescriptionKey: "Cancelled"])
+            }
             try await executeCompression(
                 sourceURL: url,
                 destinationURL: destinationURL,
@@ -118,12 +240,24 @@ public actor MediaCompressionEngine {
                 jobId: jobId
             )
         } catch {
+            if cancelledJobIds.contains(jobId) || Task.isCancelled {
+                cancelledJobIds.remove(jobId)
+                try? FileManager.default.removeItem(at: destinationURL)
+                await AppState.shared.finishJob(id: jobId, result: nil, error: "Cancelled")
+                return
+            }
+            
             // Permission or write error fallback: attempt writing to ~/Downloads
             let downloadsFolder = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory
             let fallbackURL = generateDestinationURL(for: url, inFolder: downloadsFolder, mediaType: mediaType, config: config)
             
             do {
                 destinationURL = fallbackURL
+                activeDestinationURLs[jobId] = destinationURL
+                
+                if cancelledJobIds.contains(jobId) || Task.isCancelled {
+                    throw NSError(domain: "SqueezeBar", code: -999, userInfo: [NSLocalizedDescriptionKey: "Cancelled"])
+                }
                 try await executeCompression(
                     sourceURL: url,
                     destinationURL: destinationURL,
@@ -132,9 +266,22 @@ public actor MediaCompressionEngine {
                     jobId: jobId
                 )
             } catch {
+                if cancelledJobIds.contains(jobId) || Task.isCancelled {
+                    cancelledJobIds.remove(jobId)
+                    try? FileManager.default.removeItem(at: destinationURL)
+                    await AppState.shared.finishJob(id: jobId, result: nil, error: "Cancelled")
+                    return
+                }
                 await AppState.shared.finishJob(id: jobId, result: nil, error: error.localizedDescription)
                 return
             }
+        }
+        
+        if cancelledJobIds.contains(jobId) || Task.isCancelled {
+            cancelledJobIds.remove(jobId)
+            try? FileManager.default.removeItem(at: destinationURL)
+            await AppState.shared.finishJob(id: jobId, result: nil, error: "Cancelled")
+            return
         }
         
         let compressedSize = fileSize(of: destinationURL)
@@ -197,6 +344,17 @@ public actor MediaCompressionEngine {
                 }
             }
             
+        case .pdf:
+            try pdfCompressor.compressPDF(
+                from: sourceURL,
+                to: destinationURL,
+                config: config
+            ) { progress in
+                Task { @MainActor in
+                    AppState.shared.updateJob(id: jobId, progress: progress, statusText: "Optimizing PDF \(Int(progress * 100))%")
+                }
+            }
+            
         case .unsupported:
             throw NSError(domain: "SqueezeBar", code: 400, userInfo: [NSLocalizedDescriptionKey: "Unsupported media format"])
         }
@@ -237,6 +395,8 @@ public actor MediaCompressionEngine {
             targetExt = videoCompressor.outputExtension(for: sourceURL, config: config)
         case .audio:
             targetExt = audioCompressor.outputExtension(for: sourceURL, config: config)
+        case .pdf:
+            targetExt = pdfCompressor.outputExtension(for: sourceURL, config: config)
         case .unsupported:
             targetExt = sourceURL.pathExtension
         }
@@ -326,13 +486,25 @@ public actor MediaCompressionEngine {
                 }
             }
             return nil
+        case .pdf:
+            if let doc = PDFDocument(url: url), doc.pageCount > 0 {
+                let count = doc.pageCount
+                if let firstPage = doc.page(at: 0) {
+                    let b = firstPage.bounds(for: .mediaBox)
+                    let w = Int(b.width)
+                    let h = Int(b.height)
+                    return "\(count) \(count == 1 ? "Page" : "Pages") • \(w) × \(h) pt"
+                }
+                return "\(count) \(count == 1 ? "Page" : "Pages")"
+            }
+            return nil
         case .unsupported:
             return nil
         }
     }
     
     // MARK: - File & Directory Traversal (Batch Folder Support)
-    private func gatherMediaFiles(from urls: [URL]) -> [URL] {
+    nonisolated public func gatherMediaFiles(from urls: [URL]) -> [URL] {
         var result: [URL] = []
         let fileManager = FileManager.default
         

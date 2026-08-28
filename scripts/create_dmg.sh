@@ -3,108 +3,35 @@ set -e
 
 # ==============================================================================
 # SqueezeBar DMG Installer Builder
-# Creates a professional drag-and-drop macOS DMG installer with custom minimalist background
+# Creates a professional drag-and-drop macOS DMG installer with baked-in arrow & background layout
 # ==============================================================================
 
 APP_NAME="SqueezeBar"
 VERSION="0.98"
-DMG_NAME="${APP_NAME}-${VERSION}.dmg"
-VOL_NAME="${APP_NAME} Installer"
-BUILD_DIR=".build/dmg_temp"
-DMG_STAGING=".build/dmg_staging"
-OUTPUT_DMG="${DMG_NAME}"
+OUTPUT_DMG="${APP_NAME}-${VERSION}.dmg"
 
 echo "=========================================="
 echo " Building ${APP_NAME} DMG Installer"
 echo "=========================================="
 
-# 1. Ensure the app bundle and background exist and are fresh
+# 1. Build and package the production app bundle
 ./scripts/bundle_app.sh
-swift ./scripts/generate_dmg_background.swift "Resources/dmg_background.png"
 
 if [ ! -d "${APP_NAME}.app" ]; then
     echo "Error: ${APP_NAME}.app not found!"
     exit 1
 fi
 
-# 2. Clean previous staging directories and DMG
-rm -rf "${BUILD_DIR}" "${DMG_STAGING}" "${OUTPUT_DMG}" "${BUILD_DIR}_rw.dmg"
-mkdir -p "${BUILD_DIR}"
-mkdir -p "${DMG_STAGING}"
-mkdir -p "${DMG_STAGING}/.images"
+# 2. Build DMG using create-dmg for reliable .DS_Store background and arrow layout
+rm -f "${OUTPUT_DMG}" "SqueezeBar"*.dmg
+npx --yes create-dmg "${APP_NAME}.app" . --overwrite --no-code-sign --no-version-in-filename
 
-echo "[1/4] Staging app, background, and Applications symlink..."
-cp -R "${APP_NAME}.app" "${DMG_STAGING}/"
-ln -s /Applications "${DMG_STAGING}/Applications"
-cp "Resources/dmg_background.png" "${DMG_STAGING}/.images/background.png"
-
-# 3. Create a temporary read-write DMG
-echo "[2/4] Creating temporary disk image..."
-hdiutil create -srcfolder "${DMG_STAGING}" \
-    -volname "${VOL_NAME}" \
-    -fs HFS+ \
-    -fsargs "-c c=64,a=16,e=16" \
-    -format UDRW \
-    -size 120m \
-    "${BUILD_DIR}_rw.dmg"
-
-# 4. Mount the RW DMG to configure Finder view
-echo "[3/4] Mounting and styling Finder window layout with custom background..."
-DEVICE=$(hdiutil attach -readwrite -noverify -noautoopen "${BUILD_DIR}_rw.dmg" | egrep '^/dev/' | sed 1q | awk '{print $1}')
-MOUNT_DIR="/Volumes/${VOL_NAME}"
-
-# Wait for volume to appear
-sleep 2
-
-# Run AppleScript to set custom background image and arrange icons nicely
-osascript <<EOF || true
-tell application "Finder"
-    tell disk "${VOL_NAME}"
-        open
-        set current view of container window to icon view
-        set toolbar visible of container window to false
-        set statusbar visible of container window to false
-        set the bounds of container window to {400, 200, 940, 560}
-        
-        set theOptions to icon view options of container window
-        tell theOptions
-            set icon size to 110
-            set text size to 12
-            set label position to bottom
-            set arrangement to not arranged
-        end tell
-        
-        try
-            set bgFile to file "background.png" of folder ".images" of disk "${VOL_NAME}" as alias
-            set background picture of theOptions to bgFile
-        end try
-        
-        -- Position App icon on the left, Applications folder on the right
-        set position of item "${APP_NAME}.app" of container window to {140, 180}
-        set position of item "Applications" of container window to {400, 180}
-        
-        close
-        open
-        update without registering applications
-        delay 1
-    end tell
-end tell
-EOF
-
-# Sync changes and unmount
-sync
-hdiutil detach "${DEVICE}" || hdiutil detach "${MOUNT_DIR}" -force || true
-sleep 2
-
-# 5. Convert to compressed, read-only final DMG
-echo "[4/4] Converting to final compressed DMG..."
-hdiutil convert "${BUILD_DIR}_rw.dmg" \
-    -format UDZO \
-    -imagekey zlib-level=9 \
-    -o "${OUTPUT_DMG}"
-
-# Clean up temporary files
-rm -rf "${BUILD_DIR}" "${DMG_STAGING}" "${BUILD_DIR}_rw.dmg"
+# Rename to standardized release name
+if [ -f "${APP_NAME}.dmg" ]; then
+    mv "${APP_NAME}.dmg" "${OUTPUT_DMG}"
+elif [ -f "${APP_NAME} ${VERSION}.dmg" ]; then
+    mv "${APP_NAME} ${VERSION}.dmg" "${OUTPUT_DMG}"
+fi
 
 echo "=========================================="
 echo " Successfully created DMG installer:"

@@ -15,6 +15,7 @@ dotnet publish SqueezeBar/SqueezeBar.csproj \
   -o ./dist_single
 
 cp ./dist_single/SqueezeBar.exe ./SqueezeBar.exe
+rm -rf ./dist_single
 
 echo "=========================================="
 echo " Build Complete!"

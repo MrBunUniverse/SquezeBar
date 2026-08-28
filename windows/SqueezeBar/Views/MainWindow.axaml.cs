@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -52,19 +53,21 @@ public partial class MainWindow : Window
             }
             else if (e.PropertyName == nameof(_state.ImageSummaryText))
             {
-                ImagesTileSummary.Text = _state.ImageSummaryText;
+                ImagesTileFormat.Text = _state.ImageFormatPolicy.ToString().Replace("Modern", "").Replace("Web", "").Trim();
+                ImagesTileQuality.Text = $"{_state.ImageQualityPercent}% • {(int)(_state.ImageResolutionScale * 100)}%";
             }
             else if (e.PropertyName == nameof(_state.VideoSummaryText))
             {
-                VideoTileSummary.Text = _state.VideoSummaryText;
+                VideoTileCodec.Text = _state.VideoCodec.ToString();
+                VideoTileQuality.Text = $"{_state.VideoQualityPercent}% • {(int)(_state.VideoResolutionScale * 100)}%";
             }
             else if (e.PropertyName == nameof(_state.AudioSummaryText))
             {
-                AudioTileSummary.Text = _state.AudioSummaryText;
+                AudioTileBitrate.Text = $"{_state.AudioBitrate.ToString().TrimStart('K')}k AAC";
             }
             else if (e.PropertyName == nameof(_state.PdfSummaryText))
             {
-                PdfTileSummary.Text = _state.PdfSummaryText;
+                PdfTileDpi.Text = $"{_state.PdfDpi} DPI";
             }
         };
 
@@ -166,10 +169,10 @@ public partial class MainWindow : Window
         ActivityTabPanel.IsVisible = true;
         SettingsTabPanel.IsVisible = false;
 
-        ActivityTabBtn.Background = SolidColorBrush.Parse(_state.AccentColorHex);
-        ActivityTabBtn.Foreground = Brushes.Black;
-        SettingsTabBtn.Background = Brushes.Transparent;
-        SettingsTabBtn.Foreground = SolidColorBrush.Parse("#8E9297");
+        ActivityTabBtn.Background = SolidColorBrush.Parse("#1C212D");
+        ActivityTabBtn.BorderBrush = SolidColorBrush.Parse(_state.AccentColorHex);
+        SettingsTabBtn.Background = SolidColorBrush.Parse("#181B24");
+        SettingsTabBtn.BorderBrush = SolidColorBrush.Parse("#262A36");
     }
 
     private void SettingsTab_Click(object? sender, RoutedEventArgs e)
@@ -178,10 +181,10 @@ public partial class MainWindow : Window
         ActivityTabPanel.IsVisible = false;
         SettingsTabPanel.IsVisible = true;
 
-        SettingsTabBtn.Background = SolidColorBrush.Parse(_state.AccentColorHex);
-        SettingsTabBtn.Foreground = Brushes.Black;
-        ActivityTabBtn.Background = Brushes.Transparent;
-        ActivityTabBtn.Foreground = SolidColorBrush.Parse("#8E9297");
+        SettingsTabBtn.Background = SolidColorBrush.Parse("#1C212D");
+        SettingsTabBtn.BorderBrush = SolidColorBrush.Parse(_state.AccentColorHex);
+        ActivityTabBtn.Background = SolidColorBrush.Parse("#181B24");
+        ActivityTabBtn.BorderBrush = SolidColorBrush.Parse("#262A36");
     }
 
     // Category Tile Selection
@@ -264,7 +267,7 @@ public partial class MainWindow : Window
     private void UpdateTileStyles()
     {
         var activeBrush = SolidColorBrush.Parse(_state.AccentColorHex);
-        var inactiveBrush = SolidColorBrush.Parse("#262932");
+        var inactiveBrush = SolidColorBrush.Parse("#222634");
 
         bool exp = _state.IsFormatDrawerExpanded;
 
@@ -312,7 +315,7 @@ public partial class MainWindow : Window
 
     private void UpdatePresetButtonStyles(Button activeBtn)
     {
-        var inactiveBrush = SolidColorBrush.Parse("#20242E");
+        var inactiveBrush = SolidColorBrush.Parse("#1E232E");
         var activeBrush = SolidColorBrush.Parse(_state.AccentColorHex);
 
         PresetOffBtn.Background = inactiveBrush; PresetOffBtn.Foreground = SolidColorBrush.Parse("#CCCCCC");
@@ -421,27 +424,47 @@ public partial class MainWindow : Window
         }
     }
 
-    // Theme Color Actions
-    private void ThemeCyan_Click(object? sender, RoutedEventArgs e) => ApplyThemeColor("#00D2FF");
-    private void ThemeEmerald_Click(object? sender, RoutedEventArgs e) => ApplyThemeColor("#00E676");
-    private void ThemePurple_Click(object? sender, RoutedEventArgs e) => ApplyThemeColor("#A855F7");
-    private void ThemeSunset_Click(object? sender, RoutedEventArgs e) => ApplyThemeColor("#FF6B00");
-    private void ThemeBlue_Click(object? sender, RoutedEventArgs e) => ApplyThemeColor("#007AFF");
+    // Minimalist Color Swatch Actions
+    private void ThemeCyan_Click(object? sender, RoutedEventArgs e) => ApplyThemeColor("#00D2FF", ColorBallCyan);
+    private void ThemeEmerald_Click(object? sender, RoutedEventArgs e) => ApplyThemeColor("#00E676", ColorBallEmerald);
+    private void ThemePurple_Click(object? sender, RoutedEventArgs e) => ApplyThemeColor("#A855F7", ColorBallPurple);
+    private void ThemeSunset_Click(object? sender, RoutedEventArgs e) => ApplyThemeColor("#FF6B00", ColorBallSunset);
+    private void ThemeRose_Click(object? sender, RoutedEventArgs e) => ApplyThemeColor("#FF3366", ColorBallRose);
+    private void ThemeBlue_Click(object? sender, RoutedEventArgs e) => ApplyThemeColor("#007AFF", ColorBallBlue);
 
-    private void ApplyThemeColor(string hex)
+    private int _customColorIndex = 0;
+    private readonly string[] _customColors = { "#E040FB", "#FFD600", "#00E5FF", "#FF5252", "#76FF03" };
+
+    private void ThemeCustom_Click(object? sender, RoutedEventArgs e)
+    {
+        string color = _customColors[_customColorIndex % _customColors.Length];
+        _customColorIndex++;
+        ColorBallCustom.Background = SolidColorBrush.Parse(color);
+        ApplyThemeColor(color, ColorBallCustom);
+    }
+
+    private void ApplyThemeColor(string hex, Button activeBall)
     {
         _state.AccentColorHex = hex;
         QuickDropBorder.BorderBrush = SolidColorBrush.Parse(hex);
         SavedStatsText.Foreground = SolidColorBrush.Parse(hex);
         UpdateTileStyles();
-        if (_state.SelectedTab == PopoverTab.Activity)
+
+        // Reset all swatch borders
+        var balls = new[] { ColorBallCyan, ColorBallEmerald, ColorBallPurple, ColorBallSunset, ColorBallRose, ColorBallBlue, ColorBallCustom };
+        foreach (var b in balls)
         {
-            ActivityTabBtn.Background = SolidColorBrush.Parse(hex);
+            b.BorderBrush = Brushes.Transparent;
+            b.Width = 26;
+            b.Height = 26;
+            b.CornerRadius = new CornerRadius(13);
         }
-        else
-        {
-            SettingsTabBtn.Background = SolidColorBrush.Parse(hex);
-        }
+
+        // Highlight selected swatch with a white ring and slightly larger diameter
+        activeBall.BorderBrush = Brushes.White;
+        activeBall.Width = 30;
+        activeBall.Height = 30;
+        activeBall.CornerRadius = new CornerRadius(15);
     }
 
     // Watched Folders

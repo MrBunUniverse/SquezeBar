@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+cd "$(dirname "$0")/.."
 
 echo "[SqueezeBar] Building Release binary..."
 swift build -c release

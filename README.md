@@ -1,57 +1,57 @@
 # SqueezeBar
 
-A lightweight, hardware-accelerated macOS menu bar utility for fast, effortless media compression.
+A lightweight, hardware-accelerated media compression utility for **macOS** and **Windows**.
 
-SqueezeBar runs as an accessory in the macOS menu bar. Drag and drop single or multiple images, videos, or audio files over the menu bar icon to compress them in the background using Apple Silicon hardware acceleration. Optimized files are saved alongside the originals without replacing them.
-
----
-
-## Features
-
-- **Expandable Drop Target**: Minimal menu bar icon that expands into an active drop zone during drag operations.
-- **Hardware-Accelerated Compression**:
-  - **Video**: HEVC (H.265) and H.264 encoding via `AVFoundation` and `VideoToolbox`.
-  - **Images**: Accelerated resizing and conversion using `Accelerate` (vImage) and `ImageIO` (WebP, HEIC, JPEG, PNG).
-  - **Audio**: Fast AAC encoding via `AVFoundation`.
-- **Batch Processing & Folder Monitoring**: Queue multiple files at once or set watched folders for automatic compression.
-- **Privacy First**: All processing takes place locally on your Mac. No network requests or telemetry.
-- **Statistics & Customization**: Track total space saved, configure compression quality presets, strip EXIF metadata, and customize output file suffixes.
+SqueezeBar provides effortless 1-drop batch media compression, a desktop floating drop basket, and per-file fine-tuning with zero telemetry and 100% on-device processing.
 
 ---
 
-## Installation
+## Project Structure
 
-### Direct Download (Release)
-
-1. Download the latest `SqueezeBar.zip` from the [Releases](https://github.com/MrBunUniverse/SquezeBar/releases) section.
-2. Unzip and drag `SqueezeBar.app` into your `/Applications` folder.
-3. Open the app. 
-
-> **First Launch on macOS:**
-> Since this build is not notarized through an Apple Developer ID, macOS Gatekeeper may show a warning on first open. To open:
-> - Right-click (or Control-click) `SqueezeBar.app` and choose **Open**.
-> - Or go to **System Settings > Privacy & Security** and click **Open Anyway**.
+```text
+Project ShrinkDrop/
+├── macOS/                   # macOS Native Swift / SwiftUI Application
+│   ├── Package.swift
+│   ├── Sources/
+│   ├── Resources/
+│   ├── Tests/
+│   └── scripts/
+│       ├── bundle_app.sh    # Builds SqueezeBar.app
+│       └── create_dmg.sh    # Builds SqueezeBar-0.98.dmg with custom background
+├── windows/                 # Windows Application (In Development)
+│   └── README.md
+├── LICENSE                  # GPLv3 License
+└── README.md
+```
 
 ---
 
-## Building from Source
+## macOS Version (v0.98)
 
-### Requirements
-- macOS 13.0 or later
-- Swift 5.9+ / Xcode command line tools
+### Features
+- **Desktop Floating Drop Ball**: Edge-docking magnetic liquid glass basket with Apple bezel edge-tab morphing and proximity cursor detection.
+- **Dual-Zone Popover Interface**: Instant Quick Squeeze + Custom Staged Queue with per-file sliders.
+- **Individual Per-File Settings**: Custom quality, scale, format/codec, target size limits (Discord 25MB, Email 10MB), and metadata privacy toggles.
+- **100% Native & Lightweight (~2.3 MB)**: Powered by Apple Silicon Hardware Media Engines (`AVFoundation`, `VideoToolbox`, `ImageIO`, `PDFKit`).
 
-### Build & Run
+### Download macOS Installer
+Download the latest drag-and-drop installer: **[`SqueezeBar-0.98.dmg`](https://github.com/MrBunUniverse/SquezeBar/releases/latest)**
+
+### Build from Source (macOS)
 ```bash
-# Clone the repository
-git clone https://github.com/MrBunUniverse/SquezeBar.git
-cd SquezeBar
-
-# Build release application bundle
+cd macOS
+# Build production bundle
 ./scripts/bundle_app.sh
 
-# Launch the app
-open SqueezeBar.app
+# Or create the DMG installer
+./scripts/create_dmg.sh
 ```
+
+---
+
+## Windows Version (Planned)
+
+Designed for Windows 11 Fluent Design with Mica/Acrylic materials, System Tray integration, and multi-vendor GPU hardware encoding (Nvidia NVENC, Intel QuickSync, AMD AMF). See [`windows/README.md`](windows/README.md) for details.
 
 ---
 

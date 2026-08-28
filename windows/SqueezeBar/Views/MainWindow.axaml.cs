@@ -258,18 +258,77 @@ public partial class MainWindow : Window
     }
 
     // ── Resolution Buttons ──
-    private void ImgScale100_Click(object? sender, RoutedEventArgs e) => _state.ImageResolutionScale = 1.0;
-    private void ImgScale75_Click(object? sender, RoutedEventArgs e) => _state.ImageResolutionScale = 0.75;
-    private void ImgScale50_Click(object? sender, RoutedEventArgs e) => _state.ImageResolutionScale = 0.50;
-    private void ImgScale25_Click(object? sender, RoutedEventArgs e) => _state.ImageResolutionScale = 0.25;
-    private void VidScale100_Click(object? sender, RoutedEventArgs e) => _state.VideoResolutionScale = 1.0;
-    private void VidScale75_Click(object? sender, RoutedEventArgs e) => _state.VideoResolutionScale = 0.75;
-    private void VidScale50_Click(object? sender, RoutedEventArgs e) => _state.VideoResolutionScale = 0.50;
-    private void VidScale25_Click(object? sender, RoutedEventArgs e) => _state.VideoResolutionScale = 0.25;
-    private void PdfDpi72_Click(object? sender, RoutedEventArgs e) => _state.PdfDpi = 72;
-    private void PdfDpi150_Click(object? sender, RoutedEventArgs e) => _state.PdfDpi = 150;
-    private void PdfDpi200_Click(object? sender, RoutedEventArgs e) => _state.PdfDpi = 200;
-    private void PdfDpi300_Click(object? sender, RoutedEventArgs e) => _state.PdfDpi = 300;
+    private void ImgScale100_Click(object? sender, RoutedEventArgs e) { _state.ImageResolutionScale = 1.0; UpdateImgScaleButtons(ImgScale100Btn); }
+    private void ImgScale75_Click(object? sender, RoutedEventArgs e) { _state.ImageResolutionScale = 0.75; UpdateImgScaleButtons(ImgScale75Btn); }
+    private void ImgScale50_Click(object? sender, RoutedEventArgs e) { _state.ImageResolutionScale = 0.50; UpdateImgScaleButtons(ImgScale50Btn); }
+    private void ImgScale25_Click(object? sender, RoutedEventArgs e) { _state.ImageResolutionScale = 0.25; UpdateImgScaleButtons(ImgScale25Btn); }
+
+    private void UpdateImgScaleButtons(Button activeBtn)
+    {
+        var inactive = SolidColorBrush.Parse("#28282C");
+        var activeBg = SolidColorBrush.Parse(_state.AccentColorHex);
+        var inactiveFg = SolidColorBrush.Parse("#A0A0B0");
+
+        foreach (var btn in new[] { ImgScale100Btn, ImgScale75Btn, ImgScale50Btn, ImgScale25Btn })
+        {
+            btn.Background = inactive;
+            btn.Foreground = inactiveFg;
+            btn.BorderBrush = SolidColorBrush.Parse("#2D2D32");
+            btn.FontWeight = FontWeight.Normal;
+        }
+        activeBtn.Background = activeBg;
+        activeBtn.Foreground = Brushes.Black;
+        activeBtn.BorderBrush = Brushes.Transparent;
+        activeBtn.FontWeight = FontWeight.SemiBold;
+    }
+
+    private void VidScale100_Click(object? sender, RoutedEventArgs e) { _state.VideoResolutionScale = 1.0; UpdateVidScaleButtons(VidScale100Btn); }
+    private void VidScale75_Click(object? sender, RoutedEventArgs e) { _state.VideoResolutionScale = 0.75; UpdateVidScaleButtons(VidScale75Btn); }
+    private void VidScale50_Click(object? sender, RoutedEventArgs e) { _state.VideoResolutionScale = 0.50; UpdateVidScaleButtons(VidScale50Btn); }
+    private void VidScale25_Click(object? sender, RoutedEventArgs e) { _state.VideoResolutionScale = 0.25; UpdateVidScaleButtons(VidScale25Btn); }
+
+    private void UpdateVidScaleButtons(Button activeBtn)
+    {
+        var inactive = SolidColorBrush.Parse("#28282C");
+        var activeBg = SolidColorBrush.Parse(_state.AccentColorHex);
+        var inactiveFg = SolidColorBrush.Parse("#A0A0B0");
+
+        foreach (var btn in new[] { VidScale100Btn, VidScale75Btn, VidScale50Btn, VidScale25Btn })
+        {
+            btn.Background = inactive;
+            btn.Foreground = inactiveFg;
+            btn.BorderBrush = SolidColorBrush.Parse("#2D2D32");
+            btn.FontWeight = FontWeight.Normal;
+        }
+        activeBtn.Background = activeBg;
+        activeBtn.Foreground = Brushes.Black;
+        activeBtn.BorderBrush = Brushes.Transparent;
+        activeBtn.FontWeight = FontWeight.SemiBold;
+    }
+
+    private void PdfDpi72_Click(object? sender, RoutedEventArgs e) { _state.PdfDpi = 72; UpdatePdfDpiButtons(PdfDpi72Btn); }
+    private void PdfDpi150_Click(object? sender, RoutedEventArgs e) { _state.PdfDpi = 150; UpdatePdfDpiButtons(PdfDpi150Btn); }
+    private void PdfDpi200_Click(object? sender, RoutedEventArgs e) { _state.PdfDpi = 200; UpdatePdfDpiButtons(PdfDpi200Btn); }
+    private void PdfDpi300_Click(object? sender, RoutedEventArgs e) { _state.PdfDpi = 300; UpdatePdfDpiButtons(PdfDpi300Btn); }
+
+    private void UpdatePdfDpiButtons(Button activeBtn)
+    {
+        var inactive = SolidColorBrush.Parse("#28282C");
+        var activeBg = SolidColorBrush.Parse(_state.AccentColorHex);
+        var inactiveFg = SolidColorBrush.Parse("#A0A0B0");
+
+        foreach (var btn in new[] { PdfDpi72Btn, PdfDpi150Btn, PdfDpi200Btn, PdfDpi300Btn })
+        {
+            btn.Background = inactive;
+            btn.Foreground = inactiveFg;
+            btn.BorderBrush = SolidColorBrush.Parse("#2D2D32");
+            btn.FontWeight = FontWeight.Normal;
+        }
+        activeBtn.Background = activeBg;
+        activeBtn.Foreground = Brushes.Black;
+        activeBtn.BorderBrush = Brushes.Transparent;
+        activeBtn.FontWeight = FontWeight.SemiBold;
+    }
 
     // ── Drag & Drop ──
     private void OnDragOver(object? sender, DragEventArgs e) => e.DragEffects = e.Data.Contains(DataFormats.Files) ? DragDropEffects.Copy : DragDropEffects.None;

@@ -6,26 +6,6 @@ SqueezeBar provides effortless 1-drop batch media compression, a desktop floatin
 
 ---
 
-## Project Structure
-
-```text
-Project ShrinkDrop/
-├── macOS/                   # 🍏 macOS Native Swift / SwiftUI Application (v0.98 Released)
-│   ├── Package.swift
-│   ├── Sources/
-│   ├── Resources/
-│   ├── Tests/
-│   └── scripts/
-│       ├── bundle_app.sh    # Builds SqueezeBar.app
-│       └── create_dmg.sh    # Builds SqueezeBar-0.98.dmg with custom background
-├── windows/                 # 🪟 Windows Application (🚧 In Active Development)
-│   └── README.md
-├── LICENSE                  # GPLv3 License
-└── README.md
-```
-
----
-
 ## macOS Version (v0.98 • Available Now)
 
 ### Features

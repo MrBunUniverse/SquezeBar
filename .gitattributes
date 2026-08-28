@@ -1,0 +1,5 @@
+# Ignore agent skills and tooling scripts from repository language statistics
+.agents/** linguist-vendored
+.agents/** linguist-documentation
+macOS/scripts/** linguist-vendored
+windows/scripts/** linguist-vendored

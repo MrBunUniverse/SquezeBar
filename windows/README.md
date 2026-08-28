@@ -1,6 +1,9 @@
-# SqueezeBar for Windows (Planned / In Development)
+# SqueezeBar for Windows (🚧 In Active Development)
 
-This directory houses the upcoming Windows version of **SqueezeBar**, designed for Windows 11 with Fluent Design and hardware-accelerated media pipelines.
+> [!WARNING]
+> **Development Notice**: The Windows version of SqueezeBar is currently under active development and is **not yet released**. Downloadable binaries and installer packages are currently available for macOS only.
+
+This directory houses the upcoming Windows edition of **SqueezeBar**, designed for Windows 11 with Fluent Design and hardware-accelerated media pipelines.
 
 ---
 
@@ -20,7 +23,7 @@ This directory houses the upcoming Windows version of **SqueezeBar**, designed f
 
 ```text
 windows/
-├── src/                    # Application source code
+├── src/                    # Application source code (WIP)
 ├── assets/                 # App icons, background assets
 ├── build/                  # Build scripts & MSIX / InnoSetup packaging
 └── README.md

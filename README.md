@@ -1,6 +1,6 @@
 # SqueezeBar
 
-A lightweight, hardware-accelerated media compression utility for **macOS** and **Windows**.
+A lightweight, hardware-accelerated media compression utility for **macOS** *(Windows version in active development)*.
 
 SqueezeBar provides effortless 1-drop batch media compression, a desktop floating drop basket, and per-file fine-tuning with zero telemetry and 100% on-device processing.
 
@@ -10,7 +10,7 @@ SqueezeBar provides effortless 1-drop batch media compression, a desktop floatin
 
 ```text
 Project ShrinkDrop/
-├── macOS/                   # macOS Native Swift / SwiftUI Application
+├── macOS/                   # 🍏 macOS Native Swift / SwiftUI Application (v0.98 Released)
 │   ├── Package.swift
 │   ├── Sources/
 │   ├── Resources/
@@ -18,7 +18,7 @@ Project ShrinkDrop/
 │   └── scripts/
 │       ├── bundle_app.sh    # Builds SqueezeBar.app
 │       └── create_dmg.sh    # Builds SqueezeBar-0.98.dmg with custom background
-├── windows/                 # Windows Application (In Development)
+├── windows/                 # 🪟 Windows Application (🚧 In Active Development)
 │   └── README.md
 ├── LICENSE                  # GPLv3 License
 └── README.md
@@ -26,7 +26,7 @@ Project ShrinkDrop/
 
 ---
 
-## macOS Version (v0.98)
+## macOS Version (v0.98 • Available Now)
 
 ### Features
 - **Desktop Floating Drop Ball**: Edge-docking magnetic liquid glass basket with Apple bezel edge-tab morphing and proximity cursor detection.
@@ -49,9 +49,12 @@ cd macOS
 
 ---
 
-## Windows Version (Planned)
+## Windows Version (🚧 In Active Development)
 
-Designed for Windows 11 Fluent Design with Mica/Acrylic materials, System Tray integration, and multi-vendor GPU hardware encoding (Nvidia NVENC, Intel QuickSync, AMD AMF). See [`windows/README.md`](windows/README.md) for details.
+> [!NOTE]
+> **Status:** The Windows version is currently under active development and is **not yet released**. Pre-built binaries are currently available for macOS only.
+
+The upcoming Windows edition is being designed for Windows 11 with Fluent Design (Mica/Acrylic translucent materials), System Tray integration, and multi-vendor GPU hardware acceleration (Nvidia NVENC, Intel QuickSync, AMD AMF). See [`windows/README.md`](windows/README.md) for architectural details and progress.
 
 ---
 

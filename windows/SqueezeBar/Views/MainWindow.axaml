@@ -62,57 +62,52 @@
                     <!-- 4 Live Format Profile Tiles -->
                     <Grid ColumnDefinitions="*,*,*,*">
                         <!-- Images -->
-                        <Button Grid.Column="0" Margin="0,0,3,0" Padding="0" Background="Transparent" BorderThickness="0" HorizontalAlignment="Stretch" Click="SelectImagesCategory_Click">
-                            <Border x:Name="ImagesTileBorder" Background="#222226" CornerRadius="9" Padding="8,9" MinHeight="62" BorderBrush="#2D2D32" BorderThickness="0.5">
-                                <StackPanel Spacing="3">
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <TextBlock Text="Images" FontSize="9.5" FontWeight="Bold" Foreground="#B0B0BE" FontFamily="Georgia, 'Times New Roman', serif"/>
-                                        <TextBlock Grid.Column="1" x:Name="ImagesChevron" Text="▼" FontSize="7" Foreground="#55556A"/>
-                                    </Grid>
-                                    <TextBlock x:Name="ImagesTileFormat" Text="WebP" FontSize="10" FontWeight="SemiBold" Foreground="#E8E8ED"/>
-                                    <TextBlock x:Name="ImagesTileQuality" Text="80% Q · 100%" FontSize="8" Foreground="#6B6B78"/>
-                                </StackPanel>
-                            </Border>
-                        </Button>
+                        <Border Grid.Column="0" x:Name="ImagesTileBorder" Margin="0,0,3,0" Background="#222226" CornerRadius="9" Padding="8,9" MinHeight="62" BorderBrush="#2D2D32" BorderThickness="0.5" Cursor="Hand" PointerPressed="SelectImagesCategory_PointerPressed">
+                            <StackPanel Spacing="3">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="Images" FontSize="9.5" FontWeight="Bold" Foreground="#B0B0BE" FontFamily="Georgia, 'Times New Roman', serif"/>
+                                    <TextBlock Grid.Column="1" x:Name="ImagesChevron" Text="▼" FontSize="7" Foreground="#55556A"/>
+                                </Grid>
+                                <TextBlock x:Name="ImagesTileFormat" Text="WebP" FontSize="10" FontWeight="SemiBold" Foreground="#E8E8ED"/>
+                                <TextBlock x:Name="ImagesTileQuality" Text="80% Q · 100%" FontSize="8" Foreground="#6B6B78"/>
+                            </StackPanel>
+                        </Border>
+
                         <!-- Video -->
-                        <Button Grid.Column="1" Margin="2,0,2,0" Padding="0" Background="Transparent" BorderThickness="0" HorizontalAlignment="Stretch" Click="SelectVideoCategory_Click">
-                            <Border x:Name="VideoTileBorder" Background="#222226" CornerRadius="9" Padding="8,9" MinHeight="62" BorderBrush="#2D2D32" BorderThickness="0.5">
-                                <StackPanel Spacing="3">
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <TextBlock Text="Video" FontSize="9.5" FontWeight="Bold" Foreground="#B0B0BE" FontFamily="Georgia, 'Times New Roman', serif"/>
-                                        <TextBlock Grid.Column="1" x:Name="VideoChevron" Text="▼" FontSize="7" Foreground="#55556A"/>
-                                    </Grid>
-                                    <TextBlock x:Name="VideoTileCodec" Text="HEVC" FontSize="10" FontWeight="SemiBold" Foreground="#E8E8ED"/>
-                                    <TextBlock x:Name="VideoTileQuality" Text="70% Q · 100%" FontSize="8" Foreground="#6B6B78"/>
-                                </StackPanel>
-                            </Border>
-                        </Button>
+                        <Border Grid.Column="1" x:Name="VideoTileBorder" Margin="2,0,2,0" Background="#222226" CornerRadius="9" Padding="8,9" MinHeight="62" BorderBrush="#2D2D32" BorderThickness="0.5" Cursor="Hand" PointerPressed="SelectVideoCategory_PointerPressed">
+                            <StackPanel Spacing="3">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="Video" FontSize="9.5" FontWeight="Bold" Foreground="#B0B0BE" FontFamily="Georgia, 'Times New Roman', serif"/>
+                                    <TextBlock Grid.Column="1" x:Name="VideoChevron" Text="▼" FontSize="7" Foreground="#55556A"/>
+                                </Grid>
+                                <TextBlock x:Name="VideoTileCodec" Text="HEVC" FontSize="10" FontWeight="SemiBold" Foreground="#E8E8ED"/>
+                                <TextBlock x:Name="VideoTileQuality" Text="70% Q · 100%" FontSize="8" Foreground="#6B6B78"/>
+                            </StackPanel>
+                        </Border>
+
                         <!-- Audio -->
-                        <Button Grid.Column="2" Margin="2,0,2,0" Padding="0" Background="Transparent" BorderThickness="0" HorizontalAlignment="Stretch" Click="SelectAudioCategory_Click">
-                            <Border x:Name="AudioTileBorder" Background="#222226" CornerRadius="9" Padding="8,9" MinHeight="62" BorderBrush="#2D2D32" BorderThickness="0.5">
-                                <StackPanel Spacing="3">
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <TextBlock Text="Audio" FontSize="9.5" FontWeight="Bold" Foreground="#B0B0BE" FontFamily="Georgia, 'Times New Roman', serif"/>
-                                        <TextBlock Grid.Column="1" x:Name="AudioChevron" Text="▼" FontSize="7" Foreground="#55556A"/>
-                                    </Grid>
-                                    <TextBlock x:Name="AudioTileBitrate" Text="192 kbps" FontSize="10" FontWeight="SemiBold" Foreground="#E8E8ED"/>
-                                    <TextBlock Text="AAC Stereo" FontSize="8" Foreground="#6B6B78"/>
-                                </StackPanel>
-                            </Border>
-                        </Button>
+                        <Border Grid.Column="2" x:Name="AudioTileBorder" Margin="2,0,2,0" Background="#222226" CornerRadius="9" Padding="8,9" MinHeight="62" BorderBrush="#2D2D32" BorderThickness="0.5" Cursor="Hand" PointerPressed="SelectAudioCategory_PointerPressed">
+                            <StackPanel Spacing="3">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="Audio" FontSize="9.5" FontWeight="Bold" Foreground="#B0B0BE" FontFamily="Georgia, 'Times New Roman', serif"/>
+                                    <TextBlock Grid.Column="1" x:Name="AudioChevron" Text="▼" FontSize="7" Foreground="#55556A"/>
+                                </Grid>
+                                <TextBlock x:Name="AudioTileBitrate" Text="192 kbps" FontSize="10" FontWeight="SemiBold" Foreground="#E8E8ED"/>
+                                <TextBlock Text="AAC Stereo" FontSize="8" Foreground="#6B6B78"/>
+                            </StackPanel>
+                        </Border>
+
                         <!-- PDF -->
-                        <Button Grid.Column="3" Margin="3,0,0,0" Padding="0" Background="Transparent" BorderThickness="0" HorizontalAlignment="Stretch" Click="SelectPdfCategory_Click">
-                            <Border x:Name="PdfTileBorder" Background="#222226" CornerRadius="9" Padding="8,9" MinHeight="62" BorderBrush="#2D2D32" BorderThickness="0.5">
-                                <StackPanel Spacing="3">
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <TextBlock Text="PDF" FontSize="9.5" FontWeight="Bold" Foreground="#B0B0BE" FontFamily="Georgia, 'Times New Roman', serif"/>
-                                        <TextBlock Grid.Column="1" x:Name="PdfChevron" Text="▼" FontSize="7" Foreground="#55556A"/>
-                                    </Grid>
-                                    <TextBlock x:Name="PdfTileDpi" Text="150 DPI" FontSize="10" FontWeight="SemiBold" Foreground="#E8E8ED"/>
-                                    <TextBlock Text="Optimized" FontSize="8" Foreground="#6B6B78"/>
-                                </StackPanel>
-                            </Border>
-                        </Button>
+                        <Border Grid.Column="3" x:Name="PdfTileBorder" Margin="3,0,0,0" Background="#222226" CornerRadius="9" Padding="8,9" MinHeight="62" BorderBrush="#2D2D32" BorderThickness="0.5" Cursor="Hand" PointerPressed="SelectPdfCategory_PointerPressed">
+                            <StackPanel Spacing="3">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="PDF" FontSize="9.5" FontWeight="Bold" Foreground="#B0B0BE" FontFamily="Georgia, 'Times New Roman', serif"/>
+                                    <TextBlock Grid.Column="1" x:Name="PdfChevron" Text="▼" FontSize="7" Foreground="#55556A"/>
+                                </Grid>
+                                <TextBlock x:Name="PdfTileDpi" Text="150 DPI" FontSize="10" FontWeight="SemiBold" Foreground="#E8E8ED"/>
+                                <TextBlock Text="Optimized" FontSize="8" Foreground="#6B6B78"/>
+                            </StackPanel>
+                        </Border>
                     </Grid>
 
                     <!-- Collapsible Format Configuration Deck -->

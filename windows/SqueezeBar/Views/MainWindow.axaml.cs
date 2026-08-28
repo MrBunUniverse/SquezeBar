@@ -186,10 +186,10 @@ public partial class MainWindow : Window
     }
 
     // ── Category Tile Selection (Toggle Drawer) ──
-    private void SelectImagesCategory_Click(object? sender, RoutedEventArgs e) => ToggleCategory(MediaCategory.Images);
-    private void SelectVideoCategory_Click(object? sender, RoutedEventArgs e) => ToggleCategory(MediaCategory.Video);
-    private void SelectAudioCategory_Click(object? sender, RoutedEventArgs e) => ToggleCategory(MediaCategory.Audio);
-    private void SelectPdfCategory_Click(object? sender, RoutedEventArgs e) => ToggleCategory(MediaCategory.Pdf);
+    private void SelectImagesCategory_PointerPressed(object? sender, PointerPressedEventArgs e) => ToggleCategory(MediaCategory.Images);
+    private void SelectVideoCategory_PointerPressed(object? sender, PointerPressedEventArgs e) => ToggleCategory(MediaCategory.Video);
+    private void SelectAudioCategory_PointerPressed(object? sender, PointerPressedEventArgs e) => ToggleCategory(MediaCategory.Audio);
+    private void SelectPdfCategory_PointerPressed(object? sender, PointerPressedEventArgs e) => ToggleCategory(MediaCategory.Pdf);
 
     private void ToggleCategory(MediaCategory category)
     {

@@ -170,8 +170,8 @@ public partial class MainWindow : Window
         _state.SelectedTab = PopoverTab.Activity;
         ActivityTabPanel.IsVisible = true;
         SettingsTabPanel.IsVisible = false;
-        ActivityTabBtn.Background = SolidColorBrush.Parse("#FFFFFF18");
-        ActivityTabBtn.BorderBrush = SolidColorBrush.Parse("#FFFFFF2A");
+        ActivityTabBtn.Background = SolidColorBrush.Parse("#2A2A2F");
+        ActivityTabBtn.BorderBrush = SolidColorBrush.Parse("#353539");
         SettingsTabBtn.Background = Brushes.Transparent;
     }
 
@@ -180,7 +180,7 @@ public partial class MainWindow : Window
         _state.SelectedTab = PopoverTab.Settings;
         ActivityTabPanel.IsVisible = false;
         SettingsTabPanel.IsVisible = true;
-        SettingsTabBtn.Background = SolidColorBrush.Parse("#FFFFFF18");
+        SettingsTabBtn.Background = SolidColorBrush.Parse("#2A2A2F");
         ActivityTabBtn.Background = Brushes.Transparent;
         ActivityTabBtn.BorderBrush = Brushes.Transparent;
     }
@@ -213,8 +213,8 @@ public partial class MainWindow : Window
 
     private void UpdateTileStyles()
     {
-        var accentBrush = SolidColorBrush.Parse($"{_state.AccentColorHex}D9"); // 85% opacity like macOS
-        var defaultBorder = SolidColorBrush.Parse("#FFFFFF14");
+        var accentBrush = SolidColorBrush.Parse(_state.AccentColorHex);
+        var defaultBorder = SolidColorBrush.Parse("#2D2D32");
         bool exp = _state.IsFormatDrawerExpanded;
 
         ImagesTileBorder.BorderBrush = (exp && _state.ActiveFormatCategory == MediaCategory.Images) ? accentBrush : defaultBorder;
@@ -242,7 +242,7 @@ public partial class MainWindow : Window
 
     private void UpdatePresetButtonStyles(Button activeBtn)
     {
-        var inactive = SolidColorBrush.Parse("#FFFFFF0A");
+        var inactive = SolidColorBrush.Parse("#28282C");
         var activeBg = SolidColorBrush.Parse(_state.AccentColorHex);
         var inactiveFg = SolidColorBrush.Parse("#A0A0B0");
 
@@ -250,7 +250,7 @@ public partial class MainWindow : Window
         {
             btn.Background = inactive;
             btn.Foreground = inactiveFg;
-            btn.BorderBrush = SolidColorBrush.Parse("#FFFFFF14");
+            btn.BorderBrush = SolidColorBrush.Parse("#2D2D32");
         }
         activeBtn.Background = activeBg;
         activeBtn.Foreground = Brushes.Black;

@@ -11,11 +11,11 @@
         Background="#1A1A1E"
         Foreground="#E8E8ED">
 
-    <!-- ── Frosted Glass Window Container ── -->
+    <!-- All colors are pre-composited solid opaques for Wine/CrossOver compatibility -->
     <Grid RowDefinitions="Auto,Auto,*,Auto">
 
         <!-- ════════════════════════════════════════════════════ -->
-        <!-- 1. HEADER — Minimal, Typographic, Serif-Inspired    -->
+        <!-- 1. HEADER                                           -->
         <!-- ════════════════════════════════════════════════════ -->
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="20,16,20,0">
             <StackPanel Orientation="Horizontal" Spacing="0" VerticalAlignment="Center">
@@ -24,14 +24,12 @@
                     <TextBlock Text="Universal Media Optimizer" FontSize="9" Foreground="#6B6B78"/>
                 </StackPanel>
             </StackPanel>
-
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                 <Border x:Name="ProcessingBadge" Background="#1A2E28" CornerRadius="10" Padding="8,3" IsVisible="False">
                     <TextBlock Text="Optimizing..." FontSize="9" FontWeight="SemiBold" Foreground="#4ADE80"/>
                 </Border>
-                <!-- Floating Ball -->
                 <Button x:Name="FloatingBallBtn" Padding="0" Background="Transparent" BorderThickness="0" Click="ToggleFloatingBall_Click">
-                    <Border Background="#FFFFFF0A" CornerRadius="12" Padding="8,4" BorderBrush="#FFFFFF14" BorderThickness="0.5">
+                    <Border Background="#222226" CornerRadius="12" Padding="8,4" BorderBrush="#2D2D32" BorderThickness="0.5">
                         <TextBlock Text="Floating Ball" FontSize="9.5" FontWeight="Medium" Foreground="#A0A0B0"/>
                     </Border>
                 </Button>
@@ -39,16 +37,13 @@
         </Grid>
 
         <!-- ════════════════════════════════════════════════════ -->
-        <!-- 2. TAB GLIDER BAR — Frosted Glass Capsule           -->
+        <!-- 2. TAB GLIDER BAR                                   -->
         <!-- ════════════════════════════════════════════════════ -->
-        <Border Grid.Row="1" Background="#00000040" CornerRadius="20" Margin="20,12,20,0" Padding="3" BorderBrush="#FFFFFF14" BorderThickness="0.5">
+        <Border Grid.Row="1" Background="#141418" CornerRadius="20" Margin="20,12,20,0" Padding="3" BorderBrush="#27272B" BorderThickness="0.5">
             <Grid ColumnDefinitions="*,Auto">
-                <!-- Activity Pill -->
-                <Button Grid.Column="0" x:Name="ActivityTabBtn" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="0,7" CornerRadius="17" Background="#FFFFFF18" BorderBrush="#FFFFFF2A" BorderThickness="0.5" Click="ActivityTab_Click">
+                <Button Grid.Column="0" x:Name="ActivityTabBtn" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="0,7" CornerRadius="17" Background="#2A2A2F" BorderBrush="#353539" BorderThickness="0.5" Click="ActivityTab_Click">
                     <TextBlock Text="Activity" FontSize="11.5" FontWeight="SemiBold" Foreground="#F0F0F5"/>
                 </Button>
-
-                <!-- Settings Circle -->
                 <Button Grid.Column="1" x:Name="SettingsTabBtn" Width="32" Height="32" CornerRadius="16" Background="Transparent" BorderThickness="0" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Click="SettingsTab_Click">
                     <TextBlock Text="⚙" FontSize="13" Foreground="#6B6B78" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Button>
@@ -61,14 +56,14 @@
         <ScrollViewer Grid.Row="2" Margin="0,10,0,0">
             <StackPanel Spacing="10" Margin="18,0,18,18">
 
-                <!-- ━━━━━━━━━━━━ ACTIVITY TAB ━━━━━━━━━━━━ -->
+                <!-- ━━━━ ACTIVITY TAB ━━━━ -->
                 <StackPanel x:Name="ActivityTabPanel" Spacing="10">
 
-                    <!-- ── 4 Live Format Profile Tiles ── -->
+                    <!-- 4 Live Format Profile Tiles -->
                     <Grid ColumnDefinitions="*,*,*,*">
                         <!-- Images -->
                         <Button Grid.Column="0" Margin="0,0,3,0" Padding="0" Background="Transparent" BorderThickness="0" HorizontalAlignment="Stretch" Click="SelectImagesCategory_Click">
-                            <Border x:Name="ImagesTileBorder" Background="#FFFFFF09" CornerRadius="9" Padding="8,9" MinHeight="62" BorderBrush="#FFFFFF14" BorderThickness="0.5">
+                            <Border x:Name="ImagesTileBorder" Background="#222226" CornerRadius="9" Padding="8,9" MinHeight="62" BorderBrush="#2D2D32" BorderThickness="0.5">
                                 <StackPanel Spacing="3">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <TextBlock Text="Images" FontSize="9.5" FontWeight="Bold" Foreground="#B0B0BE" FontFamily="Georgia, 'Times New Roman', serif"/>
@@ -79,10 +74,9 @@
                                 </StackPanel>
                             </Border>
                         </Button>
-
                         <!-- Video -->
                         <Button Grid.Column="1" Margin="2,0,2,0" Padding="0" Background="Transparent" BorderThickness="0" HorizontalAlignment="Stretch" Click="SelectVideoCategory_Click">
-                            <Border x:Name="VideoTileBorder" Background="#FFFFFF09" CornerRadius="9" Padding="8,9" MinHeight="62" BorderBrush="#FFFFFF14" BorderThickness="0.5">
+                            <Border x:Name="VideoTileBorder" Background="#222226" CornerRadius="9" Padding="8,9" MinHeight="62" BorderBrush="#2D2D32" BorderThickness="0.5">
                                 <StackPanel Spacing="3">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <TextBlock Text="Video" FontSize="9.5" FontWeight="Bold" Foreground="#B0B0BE" FontFamily="Georgia, 'Times New Roman', serif"/>
@@ -93,10 +87,9 @@
                                 </StackPanel>
                             </Border>
                         </Button>
-
                         <!-- Audio -->
                         <Button Grid.Column="2" Margin="2,0,2,0" Padding="0" Background="Transparent" BorderThickness="0" HorizontalAlignment="Stretch" Click="SelectAudioCategory_Click">
-                            <Border x:Name="AudioTileBorder" Background="#FFFFFF09" CornerRadius="9" Padding="8,9" MinHeight="62" BorderBrush="#FFFFFF14" BorderThickness="0.5">
+                            <Border x:Name="AudioTileBorder" Background="#222226" CornerRadius="9" Padding="8,9" MinHeight="62" BorderBrush="#2D2D32" BorderThickness="0.5">
                                 <StackPanel Spacing="3">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <TextBlock Text="Audio" FontSize="9.5" FontWeight="Bold" Foreground="#B0B0BE" FontFamily="Georgia, 'Times New Roman', serif"/>
@@ -107,10 +100,9 @@
                                 </StackPanel>
                             </Border>
                         </Button>
-
                         <!-- PDF -->
                         <Button Grid.Column="3" Margin="3,0,0,0" Padding="0" Background="Transparent" BorderThickness="0" HorizontalAlignment="Stretch" Click="SelectPdfCategory_Click">
-                            <Border x:Name="PdfTileBorder" Background="#FFFFFF09" CornerRadius="9" Padding="8,9" MinHeight="62" BorderBrush="#FFFFFF14" BorderThickness="0.5">
+                            <Border x:Name="PdfTileBorder" Background="#222226" CornerRadius="9" Padding="8,9" MinHeight="62" BorderBrush="#2D2D32" BorderThickness="0.5">
                                 <StackPanel Spacing="3">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <TextBlock Text="PDF" FontSize="9.5" FontWeight="Bold" Foreground="#B0B0BE" FontFamily="Georgia, 'Times New Roman', serif"/>
@@ -123,22 +115,21 @@
                         </Button>
                     </Grid>
 
-                    <!-- ── Collapsible Format Configuration Deck ── -->
-                    <Border x:Name="FormatDrawerBorder" Background="#FFFFFF06" CornerRadius="10" Padding="12" BorderBrush="#FFFFFF0E" BorderThickness="0.5">
+                    <!-- Collapsible Format Configuration Deck -->
+                    <Border x:Name="FormatDrawerBorder" Background="#1F1F23" CornerRadius="10" Padding="12" BorderBrush="#27272B" BorderThickness="0.5">
                         <StackPanel Spacing="10">
-
                             <!-- Target Size Limit -->
                             <StackPanel Spacing="5">
                                 <TextBlock Text="TARGET SIZE LIMIT" FontSize="9" FontWeight="Bold" Foreground="#6B6B78" FontFamily="Georgia, 'Times New Roman', serif"/>
                                 <Grid ColumnDefinitions="*,*,*,*">
-                                    <Button Grid.Column="0" x:Name="PresetOffBtn" Content="Manual" Margin="0,0,2,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="9" Background="#FFFFFF0A" Foreground="#A0A0B0" CornerRadius="14" Padding="0,5" BorderBrush="#FFFFFF14" BorderThickness="0.5" Click="PresetOff_Click"/>
+                                    <Button Grid.Column="0" x:Name="PresetOffBtn" Content="Manual" Margin="0,0,2,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="9" Background="#28282C" Foreground="#A0A0B0" CornerRadius="14" Padding="0,5" BorderBrush="#2D2D32" BorderThickness="0.5" Click="PresetOff_Click"/>
                                     <Button Grid.Column="1" x:Name="Preset25Btn" Content="25 MB" Margin="2,0,2,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="9" FontWeight="SemiBold" Background="#00D2FF" Foreground="#000000" CornerRadius="14" Padding="0,5" Click="Preset25_Click"/>
-                                    <Button Grid.Column="2" x:Name="Preset10Btn" Content="10 MB" Margin="2,0,2,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="9" Background="#FFFFFF0A" Foreground="#A0A0B0" CornerRadius="14" Padding="0,5" BorderBrush="#FFFFFF14" BorderThickness="0.5" Click="Preset10_Click"/>
-                                    <Button Grid.Column="3" x:Name="Preset50Btn" Content="50 MB" Margin="2,0,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="9" Background="#FFFFFF0A" Foreground="#A0A0B0" CornerRadius="14" Padding="0,5" BorderBrush="#FFFFFF14" BorderThickness="0.5" Click="Preset50_Click"/>
+                                    <Button Grid.Column="2" x:Name="Preset10Btn" Content="10 MB" Margin="2,0,2,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="9" Background="#28282C" Foreground="#A0A0B0" CornerRadius="14" Padding="0,5" BorderBrush="#2D2D32" BorderThickness="0.5" Click="Preset10_Click"/>
+                                    <Button Grid.Column="3" x:Name="Preset50Btn" Content="50 MB" Margin="2,0,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="9" Background="#28282C" Foreground="#A0A0B0" CornerRadius="14" Padding="0,5" BorderBrush="#2D2D32" BorderThickness="0.5" Click="Preset50_Click"/>
                                 </Grid>
                             </StackPanel>
 
-                            <Border Height="1" Background="#FFFFFF0E"/>
+                            <Border Height="1" Background="#27272B"/>
 
                             <!-- Images Deck -->
                             <StackPanel x:Name="ImagesDeckPanel" Spacing="8">
@@ -147,11 +138,10 @@
                                     <TextBlock Grid.Column="1" x:Name="ImgQualityLabel" Text="80%" FontSize="10.5" FontWeight="SemiBold" Foreground="#00D2FF"/>
                                 </Grid>
                                 <Slider x:Name="ImgQualitySlider" Minimum="0.10" Maximum="1.0" Value="0.80" TickFrequency="0.05" IsSnapToTickEnabled="True"/>
-
                                 <Grid ColumnDefinitions="*,*">
                                     <StackPanel Grid.Column="0" Margin="0,0,4,0" Spacing="3">
                                         <TextBlock Text="Format" FontSize="9" Foreground="#6B6B78"/>
-                                        <ComboBox x:Name="ImgFormatCombo" HorizontalAlignment="Stretch" FontSize="10" Background="#FFFFFF0A" BorderBrush="#FFFFFF14">
+                                        <ComboBox x:Name="ImgFormatCombo" HorizontalAlignment="Stretch" FontSize="10" Background="#28282C" BorderBrush="#2D2D32">
                                             <ComboBoxItem Content="WebP"/>
                                             <ComboBoxItem Content="JPEG"/>
                                             <ComboBoxItem Content="Original"/>
@@ -160,10 +150,10 @@
                                     <StackPanel Grid.Column="1" Margin="4,0,0,0" Spacing="3">
                                         <TextBlock Text="Resolution Scale" FontSize="9" Foreground="#6B6B78"/>
                                         <Grid ColumnDefinitions="*,*,*,*">
-                                            <Button Grid.Column="0" Content="100%" Margin="0,0,1,0" FontSize="8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#FFFFFF0A" Foreground="#A0A0B0" CornerRadius="4" Padding="0,4" BorderBrush="#FFFFFF14" BorderThickness="0.5" Click="ImgScale100_Click"/>
-                                            <Button Grid.Column="1" Content="75%" Margin="1,0,1,0" FontSize="8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#FFFFFF0A" Foreground="#A0A0B0" CornerRadius="4" Padding="0,4" BorderBrush="#FFFFFF14" BorderThickness="0.5" Click="ImgScale75_Click"/>
-                                            <Button Grid.Column="2" Content="50%" Margin="1,0,1,0" FontSize="8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#FFFFFF0A" Foreground="#A0A0B0" CornerRadius="4" Padding="0,4" BorderBrush="#FFFFFF14" BorderThickness="0.5" Click="ImgScale50_Click"/>
-                                            <Button Grid.Column="3" Content="25%" Margin="1,0,0,0" FontSize="8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#FFFFFF0A" Foreground="#A0A0B0" CornerRadius="4" Padding="0,4" BorderBrush="#FFFFFF14" BorderThickness="0.5" Click="ImgScale25_Click"/>
+                                            <Button Grid.Column="0" Content="100%" Margin="0,0,1,0" FontSize="8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#28282C" Foreground="#A0A0B0" CornerRadius="4" Padding="0,4" BorderBrush="#2D2D32" BorderThickness="0.5" Click="ImgScale100_Click"/>
+                                            <Button Grid.Column="1" Content="75%" Margin="1,0,1,0" FontSize="8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#28282C" Foreground="#A0A0B0" CornerRadius="4" Padding="0,4" BorderBrush="#2D2D32" BorderThickness="0.5" Click="ImgScale75_Click"/>
+                                            <Button Grid.Column="2" Content="50%" Margin="1,0,1,0" FontSize="8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#28282C" Foreground="#A0A0B0" CornerRadius="4" Padding="0,4" BorderBrush="#2D2D32" BorderThickness="0.5" Click="ImgScale50_Click"/>
+                                            <Button Grid.Column="3" Content="25%" Margin="1,0,0,0" FontSize="8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#28282C" Foreground="#A0A0B0" CornerRadius="4" Padding="0,4" BorderBrush="#2D2D32" BorderThickness="0.5" Click="ImgScale25_Click"/>
                                         </Grid>
                                     </StackPanel>
                                 </Grid>
@@ -176,11 +166,10 @@
                                     <TextBlock Grid.Column="1" x:Name="VidQualityLabel" Text="70%" FontSize="10.5" FontWeight="SemiBold" Foreground="#00D2FF"/>
                                 </Grid>
                                 <Slider x:Name="VidQualitySlider" Minimum="0.10" Maximum="1.0" Value="0.70" TickFrequency="0.05" IsSnapToTickEnabled="True"/>
-
                                 <Grid ColumnDefinitions="*,*">
                                     <StackPanel Grid.Column="0" Margin="0,0,4,0" Spacing="3">
                                         <TextBlock Text="Video Codec" FontSize="9" Foreground="#6B6B78"/>
-                                        <ComboBox x:Name="VidCodecCombo" HorizontalAlignment="Stretch" FontSize="10" Background="#FFFFFF0A" BorderBrush="#FFFFFF14">
+                                        <ComboBox x:Name="VidCodecCombo" HorizontalAlignment="Stretch" FontSize="10" Background="#28282C" BorderBrush="#2D2D32">
                                             <ComboBoxItem Content="HEVC (H.265)"/>
                                             <ComboBoxItem Content="H.264"/>
                                             <ComboBoxItem Content="Animated GIF"/>
@@ -189,10 +178,10 @@
                                     <StackPanel Grid.Column="1" Margin="4,0,0,0" Spacing="3">
                                         <TextBlock Text="Resolution Scale" FontSize="9" Foreground="#6B6B78"/>
                                         <Grid ColumnDefinitions="*,*,*,*">
-                                            <Button Grid.Column="0" Content="100%" Margin="0,0,1,0" FontSize="8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#FFFFFF0A" Foreground="#A0A0B0" CornerRadius="4" Padding="0,4" BorderBrush="#FFFFFF14" BorderThickness="0.5" Click="VidScale100_Click"/>
-                                            <Button Grid.Column="1" Content="75%" Margin="1,0,1,0" FontSize="8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#FFFFFF0A" Foreground="#A0A0B0" CornerRadius="4" Padding="0,4" BorderBrush="#FFFFFF14" BorderThickness="0.5" Click="VidScale75_Click"/>
-                                            <Button Grid.Column="2" Content="50%" Margin="1,0,1,0" FontSize="8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#FFFFFF0A" Foreground="#A0A0B0" CornerRadius="4" Padding="0,4" BorderBrush="#FFFFFF14" BorderThickness="0.5" Click="VidScale50_Click"/>
-                                            <Button Grid.Column="3" Content="25%" Margin="1,0,0,0" FontSize="8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#FFFFFF0A" Foreground="#A0A0B0" CornerRadius="4" Padding="0,4" BorderBrush="#FFFFFF14" BorderThickness="0.5" Click="VidScale25_Click"/>
+                                            <Button Grid.Column="0" Content="100%" Margin="0,0,1,0" FontSize="8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#28282C" Foreground="#A0A0B0" CornerRadius="4" Padding="0,4" BorderBrush="#2D2D32" BorderThickness="0.5" Click="VidScale100_Click"/>
+                                            <Button Grid.Column="1" Content="75%" Margin="1,0,1,0" FontSize="8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#28282C" Foreground="#A0A0B0" CornerRadius="4" Padding="0,4" BorderBrush="#2D2D32" BorderThickness="0.5" Click="VidScale75_Click"/>
+                                            <Button Grid.Column="2" Content="50%" Margin="1,0,1,0" FontSize="8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#28282C" Foreground="#A0A0B0" CornerRadius="4" Padding="0,4" BorderBrush="#2D2D32" BorderThickness="0.5" Click="VidScale50_Click"/>
+                                            <Button Grid.Column="3" Content="25%" Margin="1,0,0,0" FontSize="8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#28282C" Foreground="#A0A0B0" CornerRadius="4" Padding="0,4" BorderBrush="#2D2D32" BorderThickness="0.5" Click="VidScale25_Click"/>
                                         </Grid>
                                     </StackPanel>
                                 </Grid>
@@ -201,7 +190,7 @@
                             <!-- Audio Deck -->
                             <StackPanel x:Name="AudioDeckPanel" Spacing="7" IsVisible="False">
                                 <TextBlock Text="Audio Bitrate" FontSize="11" FontWeight="Bold" Foreground="#E8E8ED" FontFamily="Georgia, 'Times New Roman', serif"/>
-                                <ComboBox x:Name="AudioBitrateCombo" HorizontalAlignment="Stretch" FontSize="10" Background="#FFFFFF0A" BorderBrush="#FFFFFF14">
+                                <ComboBox x:Name="AudioBitrateCombo" HorizontalAlignment="Stretch" FontSize="10" Background="#28282C" BorderBrush="#2D2D32">
                                     <ComboBoxItem Content="64 kbps · Voice"/>
                                     <ComboBoxItem Content="128 kbps · Standard"/>
                                     <ComboBoxItem Content="192 kbps · High Quality"/>
@@ -214,20 +203,20 @@
                             <StackPanel x:Name="PdfDeckPanel" Spacing="7" IsVisible="False">
                                 <TextBlock Text="PDF Target DPI" FontSize="11" FontWeight="Bold" Foreground="#E8E8ED" FontFamily="Georgia, 'Times New Roman', serif"/>
                                 <Grid ColumnDefinitions="*,*,*,*">
-                                    <Button Grid.Column="0" Content="72" Margin="0,0,2,0" FontSize="9" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#FFFFFF0A" Foreground="#A0A0B0" CornerRadius="14" Padding="0,5" BorderBrush="#FFFFFF14" BorderThickness="0.5" Click="PdfDpi72_Click"/>
+                                    <Button Grid.Column="0" Content="72" Margin="0,0,2,0" FontSize="9" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#28282C" Foreground="#A0A0B0" CornerRadius="14" Padding="0,5" BorderBrush="#2D2D32" BorderThickness="0.5" Click="PdfDpi72_Click"/>
                                     <Button Grid.Column="1" Content="150" Margin="2,0,2,0" FontSize="9" FontWeight="SemiBold" Background="#00D2FF" Foreground="#000000" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" CornerRadius="14" Padding="0,5" Click="PdfDpi150_Click"/>
-                                    <Button Grid.Column="2" Content="200" Margin="2,0,2,0" FontSize="9" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#FFFFFF0A" Foreground="#A0A0B0" CornerRadius="14" Padding="0,5" BorderBrush="#FFFFFF14" BorderThickness="0.5" Click="PdfDpi200_Click"/>
-                                    <Button Grid.Column="3" Content="300" Margin="2,0,0,0" FontSize="9" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#FFFFFF0A" Foreground="#A0A0B0" CornerRadius="14" Padding="0,5" BorderBrush="#FFFFFF14" BorderThickness="0.5" Click="PdfDpi300_Click"/>
+                                    <Button Grid.Column="2" Content="200" Margin="2,0,2,0" FontSize="9" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#28282C" Foreground="#A0A0B0" CornerRadius="14" Padding="0,5" BorderBrush="#2D2D32" BorderThickness="0.5" Click="PdfDpi200_Click"/>
+                                    <Button Grid.Column="3" Content="300" Margin="2,0,0,0" FontSize="9" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#28282C" Foreground="#A0A0B0" CornerRadius="14" Padding="0,5" BorderBrush="#2D2D32" BorderThickness="0.5" Click="PdfDpi300_Click"/>
                                 </Grid>
                                 <CheckBox x:Name="PdfGrayscaleCheck" Content="Convert to Grayscale" FontSize="10" Foreground="#A0A0B0"/>
                             </StackPanel>
                         </StackPanel>
                     </Border>
 
-                    <!-- ── Quick Squeeze Drop Zone ── -->
+                    <!-- Quick Squeeze Drop Zone -->
                     <Border x:Name="QuickDropBorder"
-                            Background="#FFFFFF06"
-                            BorderBrush="#FFFFFF14"
+                            Background="#1F1F23"
+                            BorderBrush="#2D2D32"
                             BorderThickness="0.5"
                             CornerRadius="10"
                             Padding="18,14"
@@ -235,19 +224,19 @@
                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                             <TextBlock Text="Drop files here for instant compression" FontSize="11" Foreground="#B0B0BE" HorizontalAlignment="Center"/>
                             <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center" Margin="0,2,0,0">
-                                <Border Background="#FFFFFF0A" CornerRadius="10" Padding="7,2.5" BorderBrush="#FFFFFF14" BorderThickness="0.5">
+                                <Border Background="#28282C" CornerRadius="10" Padding="7,2.5" BorderBrush="#2D2D32" BorderThickness="0.5">
                                     <TextBlock x:Name="QuickDropLimitPill" Text="25 MB Limit" FontSize="8.5" FontWeight="SemiBold" Foreground="#00D2FF"/>
                                 </Border>
-                                <Border Background="#FFFFFF0A" CornerRadius="10" Padding="7,2.5" BorderBrush="#FFFFFF14" BorderThickness="0.5">
+                                <Border Background="#28282C" CornerRadius="10" Padding="7,2.5" BorderBrush="#2D2D32" BorderThickness="0.5">
                                     <TextBlock Text="WebP · HEVC · PDF" FontSize="8.5" Foreground="#6B6B78"/>
                                 </Border>
                             </StackPanel>
                         </StackPanel>
                     </Border>
 
-                    <!-- ── Staged Queue Section ── -->
-                    <Border Background="#FFFFFF06"
-                            BorderBrush="#FFFFFF0E"
+                    <!-- Staged Queue -->
+                    <Border Background="#1F1F23"
+                            BorderBrush="#27272B"
                             BorderThickness="0.5"
                             CornerRadius="10"
                             Padding="12"
@@ -263,13 +252,13 @@
                             <ItemsControl x:Name="StagedQueueItemsList">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="models:StagedQueueItem">
-                                        <Border Background="#FFFFFF06" CornerRadius="8" Padding="9,7" Margin="0,2" BorderBrush="#FFFFFF0E" BorderThickness="0.5">
+                                        <Border Background="#1A1A1E" CornerRadius="8" Padding="9,7" Margin="0,2" BorderBrush="#27272B" BorderThickness="0.5">
                                             <Grid ColumnDefinitions="*,Auto,Auto">
                                                 <StackPanel Grid.Column="0" Spacing="2">
                                                     <TextBlock Text="{Binding FileName}" FontSize="10.5" FontWeight="SemiBold" Foreground="#E8E8ED" TextTrimming="CharacterEllipsis"/>
                                                     <TextBlock Text="{Binding CustomSettingSummary}" FontSize="9" Foreground="#00D2FF"/>
                                                 </StackPanel>
-                                                <Button Grid.Column="1" Content="Custom" FontSize="9" Background="#FFFFFF0A" Foreground="#B0B0BE" CornerRadius="4" Padding="6,3" Margin="4,0" BorderBrush="#FFFFFF14" BorderThickness="0.5" Click="CustomizeItem_Click" Tag="{Binding}"/>
+                                                <Button Grid.Column="1" Content="Custom" FontSize="9" Background="#28282C" Foreground="#B0B0BE" CornerRadius="4" Padding="6,3" Margin="4,0" BorderBrush="#2D2D32" BorderThickness="0.5" Click="CustomizeItem_Click" Tag="{Binding}"/>
                                                 <Button Grid.Column="2" Content="✕" FontSize="9" Background="Transparent" Foreground="#55556A" Padding="4,2" Click="DeleteItem_Click" Tag="{Binding Id}" BorderThickness="0"/>
                                             </Grid>
                                         </Border>
@@ -281,13 +270,13 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- ── Active Processing Jobs ── -->
-                    <Border x:Name="ActiveJobsBorder" Background="#FFFFFF06" CornerRadius="10" Padding="12" BorderBrush="#FFFFFF0E" BorderThickness="0.5" IsVisible="False">
+                    <!-- Active Processing Jobs -->
+                    <Border x:Name="ActiveJobsBorder" Background="#1F1F23" CornerRadius="10" Padding="12" BorderBrush="#27272B" BorderThickness="0.5" IsVisible="False">
                         <StackPanel Spacing="7">
                             <Grid ColumnDefinitions="*,Auto">
                                 <TextBlock Text="CURRENT QUEUE" FontSize="9" FontWeight="Bold" Foreground="#6B6B78" FontFamily="Georgia, 'Times New Roman', serif"/>
                                 <Button Grid.Column="1" Padding="0" Background="Transparent" BorderThickness="0" Click="CancelAllJobs_Click">
-                                    <Border Background="#FF525218" CornerRadius="10" Padding="6,2.5" BorderBrush="#FF525240" BorderThickness="0.5">
+                                    <Border Background="#312023" CornerRadius="10" Padding="6,2.5" BorderBrush="#3D2528" BorderThickness="0.5">
                                         <TextBlock Text="Cancel All" FontSize="9" FontWeight="SemiBold" Foreground="#EF5350"/>
                                     </Border>
                                 </Button>
@@ -296,13 +285,13 @@
                             <ItemsControl x:Name="ActiveJobsList">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="models:CompressionJob">
-                                        <Border Background="#FFFFFF06" CornerRadius="8" Padding="9,7" Margin="0,2" BorderBrush="#FFFFFF0E" BorderThickness="0.5">
+                                        <Border Background="#1A1A1E" CornerRadius="8" Padding="9,7" Margin="0,2" BorderBrush="#27272B" BorderThickness="0.5">
                                             <Grid ColumnDefinitions="*,Auto,Auto">
                                                 <StackPanel Grid.Column="0" Spacing="3">
                                                     <TextBlock Text="{Binding FileName}" FontSize="10.5" FontWeight="Medium" Foreground="#E8E8ED" TextTrimming="CharacterEllipsis"/>
-                                                    <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="1" Height="3" Background="#FFFFFF0A" Foreground="#00D2FF" CornerRadius="1.5"/>
+                                                    <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="1" Height="3" Background="#28282C" Foreground="#00D2FF" CornerRadius="1.5"/>
                                                 </StackPanel>
-                                                <Border Grid.Column="1" Background="#00D2FF18" CornerRadius="10" Padding="6,2" Margin="6,0,0,0" BorderBrush="#00D2FF30" BorderThickness="0.5">
+                                                <Border Grid.Column="1" Background="#172C35" CornerRadius="10" Padding="6,2" Margin="6,0,0,0" BorderBrush="#1A3845" BorderThickness="0.5">
                                                     <TextBlock Text="{Binding StatusText}" FontSize="9" FontWeight="SemiBold" Foreground="#00D2FF"/>
                                                 </Border>
                                                 <Button Grid.Column="2" Content="✕" FontSize="9" Background="Transparent" Foreground="#55556A" Padding="3,2" Click="CancelSingleJob_Click" Tag="{Binding Id}" BorderThickness="0"/>
@@ -314,14 +303,14 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- ── Recent History ── -->
+                    <!-- Recent History -->
                     <StackPanel Spacing="6">
                         <TextBlock Text="PROJECTS &amp; RECENT" FontSize="9" FontWeight="Bold" Foreground="#6B6B78" Margin="0,4,0,0" FontFamily="Georgia, 'Times New Roman', serif"/>
 
                         <ItemsControl x:Name="HistoryItemsList">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="models:CompressionResult">
-                                    <Border Background="#FFFFFF06" CornerRadius="8" Padding="9,7" Margin="0,2" BorderBrush="#FFFFFF0E" BorderThickness="0.5">
+                                    <Border Background="#1F1F23" CornerRadius="8" Padding="9,7" Margin="0,2" BorderBrush="#27272B" BorderThickness="0.5">
                                         <Grid ColumnDefinitions="*,Auto,Auto">
                                             <StackPanel Grid.Column="0" Spacing="2">
                                                 <TextBlock Text="{Binding FileName}" FontSize="10.5" FontWeight="SemiBold" Foreground="#E8E8ED" FontFamily="Georgia, 'Times New Roman', serif" TextTrimming="CharacterEllipsis"/>
@@ -332,12 +321,12 @@
                                                 </StackPanel>
                                             </StackPanel>
 
-                                            <Border Grid.Column="1" Background="#4ADE8018" CornerRadius="10" Padding="6,2.5" Margin="4,0" BorderBrush="#4ADE8030" BorderThickness="0.5">
+                                            <Border Grid.Column="1" Background="#1F2E28" CornerRadius="10" Padding="6,2.5" Margin="4,0" BorderBrush="#243A2E" BorderThickness="0.5">
                                                 <TextBlock Text="{Binding PercentSaved, StringFormat='-{0:F0}%'}" FontSize="9" FontWeight="Bold" Foreground="#4ADE80"/>
                                             </Border>
 
                                             <Button Grid.Column="2" Padding="0" Background="Transparent" BorderThickness="0" Click="OpenFolder_Click" Tag="{Binding OutputPath}">
-                                                <Border Background="#FFFFFF0A" CornerRadius="4" Padding="6,3" BorderBrush="#FFFFFF14" BorderThickness="0.5">
+                                                <Border Background="#28282C" CornerRadius="4" Padding="6,3" BorderBrush="#2D2D32" BorderThickness="0.5">
                                                     <TextBlock Text="Open" FontSize="9" Foreground="#A0A0B0"/>
                                                 </Border>
                                             </Button>
@@ -349,18 +338,17 @@
                     </StackPanel>
                 </StackPanel>
 
-                <!-- ━━━━━━━━━━━━ SETTINGS TAB ━━━━━━━━━━━━ -->
+                <!-- ━━━━ SETTINGS TAB ━━━━ -->
                 <StackPanel x:Name="SettingsTabPanel" Spacing="10" IsVisible="False">
 
-                    <!-- Theme Accent Color — macOS-Style Swatch Circles -->
-                    <Border Background="#FFFFFF06" CornerRadius="10" Padding="14" BorderBrush="#FFFFFF0E" BorderThickness="0.5">
+                    <!-- Theme Accent Color — macOS Swatch Circles -->
+                    <Border Background="#1F1F23" CornerRadius="10" Padding="14" BorderBrush="#27272B" BorderThickness="0.5">
                         <StackPanel Spacing="10">
                             <Grid ColumnDefinitions="*,Auto">
                                 <TextBlock Text="Theme Accent Color" FontSize="11.5" FontWeight="Bold" Foreground="#E8E8ED" FontFamily="Georgia, 'Times New Roman', serif"/>
                                 <TextBlock x:Name="ThemeColorLabel" Text="Cyan" FontSize="10" FontWeight="SemiBold" Foreground="#00D2FF"/>
                             </Grid>
 
-                            <!-- Native macOS-Style Color Swatch Circles -->
                             <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2,0,0">
                                 <Button x:Name="ColorBallCyan" Width="28" Height="28" CornerRadius="14" Background="#00D2FF" BorderBrush="#FFFFFF" BorderThickness="2" Padding="0" Click="ThemeCyan_Click"/>
                                 <Button x:Name="ColorBallEmerald" Width="22" Height="22" CornerRadius="11" Background="#00E676" BorderBrush="Transparent" BorderThickness="0" Padding="0" Click="ThemeEmerald_Click"/>
@@ -368,19 +356,8 @@
                                 <Button x:Name="ColorBallSunset" Width="22" Height="22" CornerRadius="11" Background="#FF9500" BorderBrush="Transparent" BorderThickness="0" Padding="0" Click="ThemeSunset_Click"/>
                                 <Button x:Name="ColorBallRose" Width="22" Height="22" CornerRadius="11" Background="#FF2D55" BorderBrush="Transparent" BorderThickness="0" Padding="0" Click="ThemeRose_Click"/>
                                 <Button x:Name="ColorBallBlue" Width="22" Height="22" CornerRadius="11" Background="#007AFF" BorderBrush="Transparent" BorderThickness="0" Padding="0" Click="ThemeBlue_Click"/>
-                                <!-- Custom Color Wheel -->
-                                <Button x:Name="ColorBallCustom" Width="22" Height="22" CornerRadius="11" Padding="0" Click="ThemeCustom_Click" BorderBrush="Transparent" BorderThickness="0">
-                                    <Button.Background>
-                                        <ConicGradientBrush Center="50%,50%">
-                                            <GradientStop Color="#FF0000" Offset="0.0"/>
-                                            <GradientStop Color="#FFFF00" Offset="0.17"/>
-                                            <GradientStop Color="#00FF00" Offset="0.33"/>
-                                            <GradientStop Color="#00FFFF" Offset="0.5"/>
-                                            <GradientStop Color="#0000FF" Offset="0.67"/>
-                                            <GradientStop Color="#FF00FF" Offset="0.83"/>
-                                            <GradientStop Color="#FF0000" Offset="1.0"/>
-                                        </ConicGradientBrush>
-                                    </Button.Background>
+                                <Button x:Name="ColorBallCustom" Width="22" Height="22" CornerRadius="11" Background="#5856D6" Padding="0" Click="ThemeCustom_Click" BorderBrush="Transparent" BorderThickness="0">
+                                    <TextBlock Text="✦" FontSize="10" Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Button>
                             </StackPanel>
 
@@ -389,12 +366,12 @@
                     </Border>
 
                     <!-- Save Destination & Suffix -->
-                    <Border Background="#FFFFFF06" CornerRadius="10" Padding="14" BorderBrush="#FFFFFF0E" BorderThickness="0.5">
+                    <Border Background="#1F1F23" CornerRadius="10" Padding="14" BorderBrush="#27272B" BorderThickness="0.5">
                         <StackPanel Spacing="8">
                             <TextBlock Text="Save Destination" FontSize="11.5" FontWeight="Bold" Foreground="#E8E8ED" FontFamily="Georgia, 'Times New Roman', serif"/>
                             <StackPanel Spacing="4">
                                 <TextBlock Text="Filename Suffix" FontSize="9.5" Foreground="#6B6B78"/>
-                                <TextBox x:Name="SettingsSuffixBox" Text="_squeezed" Background="#FFFFFF0A" Foreground="#E8E8ED" BorderBrush="#FFFFFF14" CornerRadius="6" Padding="8,5"/>
+                                <TextBox x:Name="SettingsSuffixBox" Text="_squeezed" Background="#28282C" Foreground="#E8E8ED" BorderBrush="#2D2D32" CornerRadius="6" Padding="8,5"/>
                             </StackPanel>
                             <CheckBox x:Name="ReplaceOriginalCheck" Content="Replace original file (destructive)" FontSize="10" Foreground="#A0A0B0"/>
                             <CheckBox x:Name="StripMetadataCheck" Content="Strip EXIF &amp; GPS location metadata" IsChecked="True" FontSize="10" Foreground="#A0A0B0"/>
@@ -402,12 +379,12 @@
                     </Border>
 
                     <!-- Auto-Squeeze Watch Folder -->
-                    <Border Background="#FFFFFF06" CornerRadius="10" Padding="14" BorderBrush="#FFFFFF0E" BorderThickness="0.5">
+                    <Border Background="#1F1F23" CornerRadius="10" Padding="14" BorderBrush="#27272B" BorderThickness="0.5">
                         <StackPanel Spacing="7">
                             <Grid ColumnDefinitions="*,Auto">
                                 <TextBlock Text="Auto-Squeeze Watch Folder" FontSize="11.5" FontWeight="Bold" Foreground="#E8E8ED" FontFamily="Georgia, 'Times New Roman', serif" VerticalAlignment="Center"/>
                                 <Button Grid.Column="1" Padding="0" Background="Transparent" BorderThickness="0" Click="AddWatchedFolder_Click">
-                                    <Border Background="#FFFFFF0A" CornerRadius="12" Padding="8,3" BorderBrush="#FFFFFF14" BorderThickness="0.5">
+                                    <Border Background="#28282C" CornerRadius="12" Padding="8,3" BorderBrush="#2D2D32" BorderThickness="0.5">
                                         <TextBlock Text="+ Add Folder" FontSize="9" FontWeight="SemiBold" Foreground="#00D2FF"/>
                                     </Border>
                                 </Button>
@@ -417,7 +394,7 @@
                             <ItemsControl x:Name="WatchedFoldersList">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="x:String">
-                                        <Border Background="#FFFFFF06" CornerRadius="6" Padding="8,5" Margin="0,2" BorderBrush="#FFFFFF0E" BorderThickness="0.5">
+                                        <Border Background="#1A1A1E" CornerRadius="6" Padding="8,5" Margin="0,2" BorderBrush="#27272B" BorderThickness="0.5">
                                             <Grid ColumnDefinitions="*,Auto">
                                                 <TextBlock Text="{Binding}" FontSize="9" Foreground="#A0A0B0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontFamily="Consolas, 'Courier New', monospace"/>
                                                 <Button Grid.Column="1" Content="✕" FontSize="9" Background="Transparent" Foreground="#55556A" Padding="3,2" Click="RemoveWatchedFolder_Click" Tag="{Binding}" BorderThickness="0"/>
@@ -431,7 +408,7 @@
                     </Border>
 
                     <!-- Lifetime Storage Metrics -->
-                    <Border Background="#FFFFFF06" CornerRadius="10" Padding="14" BorderBrush="#FFFFFF0E" BorderThickness="0.5">
+                    <Border Background="#1F1F23" CornerRadius="10" Padding="14" BorderBrush="#27272B" BorderThickness="0.5">
                         <StackPanel Spacing="8">
                             <TextBlock Text="Lifetime Storage Metrics" FontSize="11.5" FontWeight="Bold" Foreground="#E8E8ED" FontFamily="Georgia, 'Times New Roman', serif"/>
                             <Grid ColumnDefinitions="*,*">
@@ -445,7 +422,7 @@
                                 </StackPanel>
                             </Grid>
                             <Button Padding="0" Background="Transparent" BorderThickness="0" HorizontalAlignment="Right" Click="ResetStats_Click">
-                                <Border Background="#FF525218" CornerRadius="10" Padding="7,3" BorderBrush="#FF525230" BorderThickness="0.5">
+                                <Border Background="#312023" CornerRadius="10" Padding="7,3" BorderBrush="#3D2528" BorderThickness="0.5">
                                     <TextBlock Text="Reset Statistics" FontSize="9" Foreground="#EF5350"/>
                                 </Border>
                             </Button>
@@ -456,9 +433,9 @@
         </ScrollViewer>
 
         <!-- ════════════════════════════════════════════════════ -->
-        <!-- 4. FOOTER — Minimal Status Bar                      -->
+        <!-- 4. FOOTER                                           -->
         <!-- ════════════════════════════════════════════════════ -->
-        <Border Grid.Row="3" Padding="20,6,20,8" BorderBrush="#FFFFFF0A" BorderThickness="0,0.5,0,0">
+        <Border Grid.Row="3" Padding="20,6,20,8" BorderBrush="#222226" BorderThickness="0,0.5,0,0">
             <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Orientation="Horizontal" Spacing="4">
                     <TextBlock x:Name="SavedStatsText" Text="0 MB Saved" FontSize="9" FontWeight="SemiBold" Foreground="#00D2FF"/>

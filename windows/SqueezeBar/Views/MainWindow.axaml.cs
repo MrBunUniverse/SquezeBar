@@ -35,7 +35,7 @@ public partial class MainWindow : Window
             }
             else if (e.PropertyName == nameof(state.IsProcessing))
             {
-                StatusText.Text = state.IsProcessing ? "Compressing files..." : "Ready • Drop anywhere to squeeze";
+                StatusText.Text = state.IsProcessing ? "Compressing files..." : "Ready • Drop files to squeeze";
             }
         };
 
@@ -78,6 +78,12 @@ public partial class MainWindow : Window
         {
             AppStateManager.Shared.AddFilesToQueue(files);
         }
+    }
+
+    private void SettingsButton_Click(object? sender, RoutedEventArgs e)
+    {
+        var dialog = new SettingsDialog();
+        dialog.ShowDialog(this);
     }
 
     private void CustomizeItem_Click(object? sender, RoutedEventArgs e)
@@ -135,10 +141,5 @@ public partial class MainWindow : Window
         {
             _floatingBasket.Hide();
         }
-    }
-
-    private void CloseButton_Click(object? sender, RoutedEventArgs e)
-    {
-        Hide();
     }
 }

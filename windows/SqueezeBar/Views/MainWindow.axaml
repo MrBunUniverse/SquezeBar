@@ -28,11 +28,6 @@
                 <Border x:Name="ProcessingBadge" Background="#1A2E28" CornerRadius="10" Padding="8,3" IsVisible="False">
                     <TextBlock Text="Optimizing..." FontSize="9" FontWeight="SemiBold" Foreground="#4ADE80"/>
                 </Border>
-                <Button x:Name="FloatingBallBtn" Padding="0" Background="Transparent" BorderThickness="0" Click="ToggleFloatingBall_Click">
-                    <Border Background="#222226" CornerRadius="12" Padding="8,4" BorderBrush="#2D2D32" BorderThickness="0.5">
-                        <TextBlock Text="Floating Ball" FontSize="9.5" FontWeight="Medium" Foreground="#A0A0B0"/>
-                    </Border>
-                </Button>
             </StackPanel>
         </Grid>
 

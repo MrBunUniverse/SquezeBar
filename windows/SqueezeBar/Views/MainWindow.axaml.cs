@@ -15,7 +15,6 @@ namespace SqueezeBar.Views;
 
 public partial class MainWindow : Window
 {
-    private FloatingBasketWindow? _floatingBasket;
     private readonly AppState _state = AppState.Shared;
 
     // macOS-style theme name labels
@@ -448,17 +447,4 @@ public partial class MainWindow : Window
     }
 
     private void ResetStats_Click(object? sender, RoutedEventArgs e) => _state.ResetStats();
-
-    private void ToggleFloatingBall_Click(object? sender, RoutedEventArgs e)
-    {
-        if (_floatingBasket == null || !_floatingBasket.IsVisible)
-        {
-            _floatingBasket = new FloatingBasketWindow();
-            _floatingBasket.Show();
-        }
-        else
-        {
-            _floatingBasket.Hide();
-        }
-    }
 }
